@@ -1,11 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_dashboard.dart';
 
-/// DEMO ADMIN CREDENTIALS (Replace with API later)
-const String demoEmail = "admin@gmail.com";
-const String demoPassword = "123456";
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -26,43 +26,60 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
     setState(() => _loading = true);
 
-    await Future.delayed(const Duration(milliseconds: 700));
+    try {
+      final response = await http.post(
+        Uri.parse(
+          "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/auth/login",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "identifier": _emailController.text.trim(),
+          "password": _passwordController.text.trim(),
+          "app": "MASTER_ADMIN", // 🔑 IMPORTANT
+        }),
+      );
 
-    if (email != demoEmail || password != demoPassword) {
-      setState(() => _loading = false);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode != 200) {
+        Fluttertoast.showToast(
+          msg: data["message"] ?? "Login failed",
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+        );
+        setState(() => _loading = false);
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("auth_token", data["token"]);
+      await prefs.setString("user_role", data["user"]["role"]);
+
       Fluttertoast.showToast(
-        msg: "Invalid admin credentials",
-        backgroundColor: Colors.red,
+        msg: "Welcome Master Admin!",
+        backgroundColor: Colors.green,
         textColor: Colors.white,
       );
-      return;
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AdminDashboard()),
+      );
+
+    } catch (e) {
+      Fluttertoast.showToast(
+        msg: "Server not reachable",
+        backgroundColor: Colors.red,
+      );
     }
 
-    // ✅ SAVE ADMIN SESSION
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("auth_token", "admin_demo_token");
-    await prefs.setString("user_role", "admin");
-
-    Fluttertoast.showToast(
-      msg: "Welcome Admin!",
-      backgroundColor: Colors.green,
-      textColor: Colors.white,
-    );
-
-    if (!mounted) return;
-
     setState(() => _loading = false);
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const AdminDashboard()),
-    );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -141,7 +158,7 @@ class _LoginPageState extends State<LoginPage> {
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
-                                labelText: "Email Address",
+                                labelText: "Email/VOTER ID/PHONE",
                                 prefixIcon:
                                 const Icon(Icons.email_outlined),
                                 border: OutlineInputBorder(
@@ -149,17 +166,9 @@ class _LoginPageState extends State<LoginPage> {
                                   BorderRadius.circular(12),
                                 ),
                               ),
-                              validator: (v) {
-                                if (v == null || v.isEmpty) {
-                                  return "Enter email";
-                                }
-                                if (!v.contains('@')) {
-                                  return "Enter valid email";
-                                }
-                                return null;
-                              },
+                              validator: (v) =>
+                              (v == null || v.isEmpty) ? "Enter email/voter id/phone" : null,
                             ),
-
                             const SizedBox(height: 20),
 
                             // PASSWORD

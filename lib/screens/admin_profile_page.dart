@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -27,12 +29,33 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   final ImagePicker _picker = ImagePicker();
   final List<String> _documentTypes = [
-    'Aadhar Card',
-    'Voter ID',
-    'PAN Card',
+    'Aadhaar',
     'Passport',
-    'Driving License',
+    'Voter ID',
+    'Driving License'
   ];
+
+  String normalizeDocumentType(String? dbValue) {
+    if (dbValue == null) return 'Aadhaar';
+
+    final value = dbValue.toUpperCase();
+
+    if (value.contains('AADHAR') || value.contains('AADHAAR')) {
+      return 'Aadhaar';
+    }
+    if (value.contains('PASSPORT')) {
+      return 'Passport';
+    }
+    if (value.contains('VOTER')) {
+      return 'Voter ID';
+    }
+    if (value.contains('DRIVING')) {
+      return 'Driving License';
+    }
+
+    return 'Aadhaar'; // safe fallback
+  }
+
 
   final List<String> _genderList = ['Male', 'Female', 'Other'];
 
@@ -40,53 +63,106 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   void initState() {
     super.initState();
     _loadAdminData();
+    _uploadPhoto;
   }
 
   Future<void> _loadAdminData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      adminName = prefs.getString('admin_name') ?? 'Unknown Admin';
-      adminEmail = prefs.getString('admin_email') ?? 'Not Available';
-      adminId = prefs.getString('admin_id') ?? 'N/A';
-      phoneNumber = prefs.getString('admin_phone') ?? 'Not Provided';
-      firstName = prefs.getString('first_name') ?? '';
-      lastName = prefs.getString('last_name') ?? '';
-      gender = prefs.getString('gender') ?? 'Male';
-      selectedDocument = prefs.getString('document_type') ?? 'Aadhar Card';
-      documentNumber = prefs.getString('document_number') ?? '';
+    final token = prefs.getString("auth_token");
 
-      final imagePath = prefs.getString('admin_image_path');
-      if (imagePath != null && File(imagePath).existsSync()) {
-        _profileImage = File(imagePath);
-      }
+    final res = await http.get(
+      Uri.parse(
+        "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/profile",
+      ),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    final data = jsonDecode(res.body);
+
+    setState(() {
+      firstName = data["first_name"] ?? "";
+      lastName = data["last_name"] ?? "";
+      adminName = "$firstName $lastName";
+      adminId = data["voter_id"] ?? "";
+      adminEmail = data["email"] ?? "";
+      phoneNumber = data["phone"] ?? "";
+      gender = data["gender"] ?? "Male";
+      selectedDocument = normalizeDocumentType(data["gov_id_type"]);
+      documentNumber = data["gov_id_no"] ?? "";
     });
+
   }
+
 
   Future<void> _pickImage() async {
     final pickedFile =
     await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
     if (pickedFile != null) {
       setState(() {
         _profileImage = File(pickedFile.path);
       });
-      Fluttertoast.showToast(msg: "Profile picture updated");
+
+      await _uploadPhoto(); // 🔥 IMPORTANT
     }
   }
 
+
+  Future<void> _uploadPhoto() async {
+    if (_profileImage == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    final req = http.MultipartRequest(
+      "POST",
+      Uri.parse(
+        "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/profile/photo",
+      ),
+    );
+
+    req.headers["Authorization"] = "Bearer $token";
+    req.files.add(
+      await http.MultipartFile.fromPath("photo", _profileImage!.path),
+    );
+
+    final res = await req.send();
+
+    if (res.statusCode == 200) {
+      Fluttertoast.showToast(msg: "Profile photo updated");
+    } else {
+      Fluttertoast.showToast(msg: "Photo upload failed");
+    }
+  }
+
+
+
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('admin_email', adminEmail);
-    await prefs.setString('admin_phone', phoneNumber);
-    await prefs.setString('first_name', firstName);
-    await prefs.setString('last_name', lastName);
-    await prefs.setString('gender', gender);
-    await prefs.setString('document_type', selectedDocument);
-    await prefs.setString('document_number', documentNumber);
-    if (_profileImage != null) {
-      await prefs.setString('admin_image_path', _profileImage!.path);
-    }
+    final token = prefs.getString("auth_token");
+
+    await http.put(
+      Uri.parse(
+        "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/profile",
+      ),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "first_name": firstName,
+        "last_name": lastName,
+        "phone": phoneNumber,
+        "email": adminEmail,
+        "gender": gender,
+        "gov_id_type": selectedDocument,
+        "gov_id_no": documentNumber,
+      }),
+    );
+
     Fluttertoast.showToast(msg: "Profile updated successfully");
   }
+
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -271,24 +347,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               ),
               const SizedBox(height: 20),
 
-              // Info Cards
-              Card(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                elevation: 4,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      _buildInfoTile(
-                          Icons.location_on, "Assigned Booths", "5 Booths"),
-                      _divider(),
-                      _buildInfoTile(Icons.report, "Reports", "2 Pending"),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
 
               // Save + Logout Buttons
               Row(

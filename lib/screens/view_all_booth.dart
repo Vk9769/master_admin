@@ -36,7 +36,7 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
         throw Exception("No token found. Please login again.");
       }
       final response = await http.get(
-        Uri.parse('http://13.61.32.111:3000/api/admin/booths'),
+        Uri.parse('http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/booths'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
