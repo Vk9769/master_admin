@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/foundation.dart';
+
 
 class AdminProfilePage extends StatefulWidget {
   const AdminProfilePage({super.key});
@@ -18,7 +20,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   String adminEmail = '';
   String adminId = '';
   String phoneNumber = '';
-  File? _profileImage;
 
   // New fields
   String firstName = '';
@@ -26,6 +27,11 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   String gender = 'Male';
   String selectedDocument = 'Aadhar Card';
   String documentNumber = '';
+
+  File? _profileImageFile;        // Android / iOS
+  Uint8List? _webImageBytes;     // Web
+  String? _profileImageUrl;      // backend image
+
 
   final ImagePicker _picker = ImagePicker();
   final List<String> _documentTypes = [
@@ -63,7 +69,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   void initState() {
     super.initState();
     _loadAdminData();
-    _uploadPhoto;
   }
 
   Future<void> _loadAdminData() async {
@@ -89,47 +94,106 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       gender = data["gender"] ?? "Male";
       selectedDocument = normalizeDocumentType(data["gov_id_type"]);
       documentNumber = data["gov_id_no"] ?? "";
+      _profileImageUrl = data["profile_photo"];
     });
 
   }
 
 
   Future<void> _pickImage() async {
-    final pickedFile =
-    await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
 
-    if (pickedFile != null) {
+    if (picked == null) return;
+
+    if (kIsWeb) {
+      final bytes = await picked.readAsBytes();
       setState(() {
-        _profileImage = File(pickedFile.path);
+        _webImageBytes = bytes;
+        _profileImageFile = null;
       });
-
-      await _uploadPhoto(); // 🔥 IMPORTANT
+    } else {
+      setState(() {
+        _profileImageFile = File(picked.path);
+        _webImageBytes = null;
+      });
     }
   }
 
 
-  Future<void> _uploadPhoto() async {
-    if (_profileImage == null) return;
 
+  ImageProvider profileImageProvider() {
+    // 1️⃣ Picked image preview (WEB)
+    if (kIsWeb && _webImageBytes != null) {
+      return MemoryImage(_webImageBytes!);
+    }
+
+    // 2️⃣ Picked image preview (MOBILE)
+    if (!kIsWeb && _profileImageFile != null) {
+      return FileImage(_profileImageFile!);
+    }
+
+    // 3️⃣ Existing backend image
+    if (_profileImageUrl != null &&
+        _profileImageUrl!.isNotEmpty &&
+        _profileImageUrl!.startsWith("http")) {
+      return NetworkImage(_profileImageUrl!);
+    }
+
+    // 4️⃣ Default avatar
+    return const AssetImage("assets/admin_avatar.png");
+  }
+
+
+
+
+  Future<void> _uploadPhoto() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("auth_token");
 
-    final req = http.MultipartRequest(
+    if (token == null) return;
+
+    final request = http.MultipartRequest(
       "POST",
       Uri.parse(
         "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/profile/photo",
       ),
     );
 
-    req.headers["Authorization"] = "Bearer $token";
-    req.files.add(
-      await http.MultipartFile.fromPath("photo", _profileImage!.path),
-    );
+    request.headers["Authorization"] = "Bearer $token";
 
-    final res = await req.send();
+    if (kIsWeb && _webImageBytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          "photo",
+          _webImageBytes!,
+          filename: "profile.png",
+        ),
+      );
+    } else if (!kIsWeb && _profileImageFile != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "photo",
+          _profileImageFile!.path,
+        ),
+      );
+    } else {
+      return;
+    }
 
-    if (res.statusCode == 200) {
+    final response = await request.send();
+
+    if (response.statusCode == 200) {
       Fluttertoast.showToast(msg: "Profile photo updated");
+
+      setState(() {
+        _profileImageFile = null;
+        _webImageBytes = null;
+      });
+
+      await _loadAdminData(); // reload signed URL
     } else {
       Fluttertoast.showToast(msg: "Photo upload failed");
     }
@@ -137,9 +201,15 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
 
 
+
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("auth_token");
+
+    // 1️⃣ Upload photo IF user selected one
+    if (_profileImageFile != null || _webImageBytes != null) {
+      await _uploadPhoto();
+    }
 
     await http.put(
       Uri.parse(
@@ -195,10 +265,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   CircleAvatar(
                     radius: 65,
                     backgroundColor: Colors.grey[300],
-                    backgroundImage: _profileImage != null
-                        ? FileImage(_profileImage!)
-                        : const AssetImage('assets/admin_avatar.png')
-                    as ImageProvider,
+                    backgroundImage: profileImageProvider(),
                   ),
                   Positioned(
                     bottom: 5,

@@ -66,6 +66,7 @@ flutter:
     - assets/maps/india_states.geojson
     - assets/maps/blank_style.json
     - assets/logo_circle.png
+    - assets/admin_avatar.png
 
 flutter_launcher_icons:
   android: true
