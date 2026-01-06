@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/election.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class ElectionDeclarationPage extends StatefulWidget {
   final Election? election; // 👈 ADD THIS LINE
@@ -74,6 +78,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
       'Mangaluru',
     ],
   };
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
 
   // Form Controllers
   late TextEditingController electionNameController;
@@ -203,6 +211,85 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
       });
     }
   }
+
+  Future<void> _submitElection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
+
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Authentication required")),
+        );
+        return;
+      }
+
+      final body = {
+        "election_category": selectedMainCategory,
+        "election_type": selectedSubType,
+        "election_name": electionNameController.text.trim(),
+        "election_code": electionCodeController.text.trim(),
+        "notification_date": _formatDate(notificationDate),
+        "poll_date": _formatDate(pollDate),
+        "counting_date": _formatDate(countingDate),
+        "result_date": _formatDate(resultDate),
+        "total_seats": _parseInt(totalSeatsController.text),
+        "total_voters": _parseInt(totalVotersController.text),
+        "state": selectedState,
+        "district": selectedDistrict,
+        "description": remarksController.text.trim(),
+      };
+
+      final isEdit = widget.election != null;
+      final uri = isEdit
+          ? Uri.parse("$baseUrl/masteradmin/elections/${widget.election!.id}")
+          : Uri.parse("$baseUrl/masteradmin/elections");
+
+      final response = await (isEdit
+          ? http.put(uri,
+          headers: _headers(token), body: jsonEncode(body))
+          : http.post(uri,
+          headers: _headers(token), body: jsonEncode(body)));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                isEdit ? "Election updated successfully" : "Election declared successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pop(context, true);
+      } else {
+        debugPrint("Election error: ${response.body}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to save election")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Submit election error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Server error")),
+      );
+    }
+  }
+
+  Map<String, String> _headers(String token) => {
+    "Authorization": "Bearer $token",
+    "Content-Type": "application/json",
+  };
+
+  String? _formatDate(DateTime? date) {
+    if (date == null) return null;
+    return DateFormat('yyyy-MM-dd').format(date);
+  }
+
+  int? _parseInt(String value) {
+    if (value.isEmpty) return null;
+    return int.tryParse(value);
+  }
+
 
   void _declareElection() {
     if (selectedMainCategory == null ||
@@ -604,7 +691,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: _declareElection,
+                          onTap: _submitElection,
                           borderRadius: BorderRadius.circular(12),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,

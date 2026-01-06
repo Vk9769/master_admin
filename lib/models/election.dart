@@ -1,32 +1,20 @@
 class Election {
   final String id;
-
-  // From Election Declaration (Step 1)
   final String category;
   final String subType;
-
-  // From Step 1 – Location
   final String state;
   final String district;
-
-  // From Step 2
   final String name;
   final String electionCode;
-  final String remarks;
-
-  // From Step 3 – Dates
   final DateTime notificationDate;
   final DateTime pollDate;
   final DateTime? countingDate;
   final DateTime? resultDate;
-
-  // From Step 4 – Stats
   final int? totalSeats;
   final int? totalVoters;
   final int voterTurnout;
-
-  // System
-  final String status; // upcoming | ongoing | past
+  final String status;
+  final String remarks;
   final String icon;
 
   Election({
@@ -45,7 +33,61 @@ class Election {
     this.totalVoters,
     this.voterTurnout = 0,
     required this.status,
-    this.remarks = '',
-    required this.icon,
+    required this.remarks,
+    this.icon = '🗳️',
   });
+
+  // ✅ ADD THIS FACTORY
+  factory Election.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(String? value) {
+      if (value == null || value.isEmpty) return null;
+      return DateTime.tryParse(value);
+    }
+
+    return Election(
+      id: json['id'].toString(),
+
+      category: json['election_category'] ?? 'N/A',
+      subType: json['election_type'] ?? 'N/A',
+
+      state: json['state'] ?? '',
+      district: json['district'] ?? json['constituency'] ?? '',
+
+      name: json['election_name'] ?? 'Unnamed Election',
+      electionCode: json['election_code'] ?? 'N/A',
+
+      notificationDate:
+      parseDate(json['notification_date']) ?? DateTime.now(),
+
+      pollDate:
+      parseDate(json['poll_date']) ?? DateTime.now(),
+
+      countingDate: parseDate(json['counting_date']),
+      resultDate: parseDate(json['result_date']),
+
+      totalSeats: json['total_seats'],
+      totalVoters: json['total_voters'],
+
+      voterTurnout: json['voter_turnout'] ?? 0,
+
+      // 👇 map backend status properly
+      status: _mapStatus(json['status']),
+
+      remarks: json['description'] ?? '',
+      icon: '🗳️',
+    );
+  }
+  static String _mapStatus(String? status) {
+    switch (status) {
+      case 'active':
+        return 'ongoing';
+      case 'completed':
+        return 'past';
+      case 'upcoming':
+        return 'upcoming';
+      default:
+        return 'upcoming';
+    }
+  }
+
 }

@@ -35,7 +35,7 @@ class _ViewAllVotersPageState extends State<ViewAllVotersPage> {
       }
 
       final response = await http.get(
-        Uri.parse('http://13.61.32.111:3000/api/admin/voter-parts'),
+        Uri.parse('http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/voter-parts'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -310,7 +310,7 @@ class _VoterListPageState extends State<VoterListPage> {
       if (token == null) throw Exception('No token found.');
 
       final response = await http.get(
-        Uri.parse('http://13.61.32.111:3000/api/admin/voters?part=${widget.partName}'),
+        Uri.parse('http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/voters?part=${widget.partName}'),
         headers: {
           'Authorization': 'Bearer $token',
         },

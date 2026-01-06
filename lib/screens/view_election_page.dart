@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'election_declaration_page.dart';
 import '../models/election.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
 
 class ViewElectionsPage extends StatefulWidget {
   const ViewElectionsPage({super.key});
@@ -12,195 +16,86 @@ class ViewElectionsPage extends StatefulWidget {
 
 class _ViewElectionsPageState extends State<ViewElectionsPage>
     with SingleTickerProviderStateMixin {
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
+  List<Election> _elections = [];
+  bool _loading = true;
+
   late TabController _tabController;
   String _selectedFilter = 'All';
 
-  // Sample election data
-  final List<Election> _elections = [
+  Future<void> _fetchElections() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
 
-    // ================= PARLIAMENTARY =================
-    Election(
-      id: '1',
-      category: 'Parliamentary Elections',
-      subType: 'Lok Sabha General Elections',
-      state: 'All India',
-      district: 'All',
-      name: 'Lok Sabha General Elections 2024',
-      electionCode: 'LS-2024',
-      notificationDate: DateTime(2024, 3, 16),
-      pollDate: DateTime(2024, 4, 19),
-      countingDate: DateTime(2024, 6, 4),
-      resultDate: DateTime(2024, 6, 4),
-      totalSeats: 543,
-      totalVoters: 900000000,
-      voterTurnout: 67,
-      status: 'ongoing',
-      remarks: 'Nationwide parliamentary election',
-      icon: '🏛️',
-    ),
+      if (token == null) return;
 
-    // ================= STATE ASSEMBLY =================
-    Election(
-      id: '2',
-      category: 'State Assembly Elections',
-      subType: 'Vidhan Sabha Elections',
-      state: 'Maharashtra',
-      district: 'All',
-      name: 'Maharashtra Assembly Elections 2024',
-      electionCode: 'MH-VS-2024',
-      notificationDate: DateTime(2024, 10, 1),
-      pollDate: DateTime(2024, 11, 20),
-      countingDate: DateTime(2024, 11, 23),
-      resultDate: DateTime(2024, 11, 23),
-      totalSeats: 288,
-      totalVoters: 92000000,
-      status: 'upcoming',
-      remarks: 'State legislative assembly election',
-      icon: '🏢',
-    ),
+      final response = await http.get(
+        Uri.parse("$baseUrl/masteradmin/elections"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
 
-    Election(
-      id: '3',
-      category: 'State Assembly Elections',
-      subType: 'Vidhan Sabha Elections',
-      state: 'Karnataka',
-      district: 'All',
-      name: 'Karnataka Assembly Elections 2023',
-      electionCode: 'KA-VS-2023',
-      notificationDate: DateTime(2023, 3, 29),
-      pollDate: DateTime(2023, 5, 10),
-      countingDate: DateTime(2023, 5, 13),
-      resultDate: DateTime(2023, 5, 13),
-      totalSeats: 224,
-      totalVoters: 53000000,
-      voterTurnout: 73,
-      status: 'past',
-      remarks: 'Completed state election',
-      icon: '🏢',
-    ),
+      if (response.statusCode == 200) {
+        final List list = jsonDecode(response.body);
 
-    // ================= MUNICIPAL =================
-    Election(
-      id: '4',
-      category: 'Municipal Elections',
-      subType: 'Municipal Corporation Elections',
-      state: 'Delhi',
-      district: 'All',
-      name: 'Delhi Municipal Corporation Elections',
-      electionCode: 'DEL-MC-2024',
-      notificationDate: DateTime(2024, 7, 15),
-      pollDate: DateTime(2024, 8, 25),
-      countingDate: DateTime(2024, 8, 28),
-      resultDate: DateTime(2024, 8, 28),
-      totalSeats: 250,
-      totalVoters: 16000000,
-      status: 'upcoming',
-      remarks: 'Municipal body elections',
-      icon: '🏙️',
-    ),
+        setState(() {
+          _elections = list.map((e) => Election.fromJson(e)).toList();
+          _loading = false;
+        });
+      } else {
+        _loading = false;
+        _showError("Failed to load elections");
+      }
+    } catch (e) {
+      _loading = false;
+      _showError("Server error");
+    }
+  }
 
-    // ================= PANCHAYAT =================
-    Election(
-      id: '5',
-      category: 'Panchayat Elections',
-      subType: 'Gram Panchayat Elections',
-      state: 'Rajasthan',
-      district: 'Multiple Districts',
-      name: 'Rajasthan Panchayat Elections 2024',
-      electionCode: 'RJ-GP-2024',
-      notificationDate: DateTime(2024, 9, 1),
-      pollDate: DateTime(2024, 9, 20),
-      countingDate: DateTime(2024, 9, 22),
-      resultDate: DateTime(2024, 9, 22),
-      totalSeats: 9894,
-      totalVoters: 52000000,
-      status: 'upcoming',
-      remarks: 'Rural local body elections',
-      icon: '🏘️',
-    ),
 
-    // ================= BYE ELECTION =================
-    Election(
-      id: '6',
-      category: 'By-Elections',
-      subType: 'Assembly By-Election',
-      state: 'Uttar Pradesh',
-      district: 'Rampur',
-      name: 'Rampur Assembly By-Election',
-      electionCode: 'UP-BYE-2024',
-      notificationDate: DateTime(2024, 6, 10),
-      pollDate: DateTime(2024, 7, 10),
-      countingDate: DateTime(2024, 7, 13),
-      resultDate: DateTime(2024, 7, 13),
-      totalSeats: 1,
-      totalVoters: 350000,
-      status: 'upcoming',
-      remarks: 'By-poll due to vacancy',
-      icon: '🗳️',
-    ),
+  Future<void> _deleteElection(Election election) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("auth_token");
 
-    // ================= PRESIDENTIAL =================
-    Election(
-      id: '7',
-      category: 'Presidential Elections',
-      subType: 'President of India Election',
-      state: 'All India',
-      district: 'All',
-      name: 'Presidential Election of India 2022',
-      electionCode: 'PRES-2022',
-      notificationDate: DateTime(2022, 6, 15),
-      pollDate: DateTime(2022, 7, 18),
-      countingDate: DateTime(2022, 7, 21),
-      resultDate: DateTime(2022, 7, 21),
-      totalSeats: 1,
-      totalVoters: 4800, // MPs + MLAs
-      voterTurnout: 99,
-      status: 'past',
-      remarks: 'Indirect election by electoral college',
-      icon: '🇮🇳',
-    ),
-  ];
+      if (token == null) return;
 
-  void _confirmDeleteElection(Election election) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Delete Election',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          'Are you sure you want to delete "${election.name}"?\n\nThis action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+      final response = await http.delete(
+        Uri.parse("$baseUrl/masteradmin/elections/${election.id}"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _elections.removeWhere((e) => e.id == election.id);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Election deleted successfully"),
+            backgroundColor: Colors.red,
           ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _elections.removeWhere((e) => e.id == election.id);
-              });
+        );
+      } else {
+        _showError("Delete failed");
+      }
+    } catch (e) {
+      _loading = false;
+      debugPrint("FETCH ERROR: $e");
+      _showError("Data parsing error");
+    }
+  }
 
-              Navigator.pop(context); // close dialog
-              Navigator.pop(context); // close bottom sheet
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Election deleted successfully'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.red),
     );
   }
 
@@ -208,7 +103,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _fetchElections();
   }
+
 
   @override
   void dispose() {
@@ -257,7 +154,14 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final filteredElections = _getFilteredElections();
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -1034,11 +938,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ElectionDeclarationPage(
-                                    election: election, // 👈 pass election for edit
-                                  ),
+                                  builder: (_) => ElectionDeclarationPage(election: election),
                                 ),
-                              );
+                              ).then((_) => _fetchElections());
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF1E40AF),
@@ -1067,7 +969,7 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                               ),
                             ),
                             onPressed: () {
-                              _confirmDeleteElection(election);
+                              _deleteElection(election);
                             },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Colors.red, width: 2),

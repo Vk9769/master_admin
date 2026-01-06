@@ -37,9 +37,9 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  int polls = 0;
+  int polls = 99659;
   int agents = 0;
-  int voters = 0;
+  int voters = 32172;
   int reports = 0;
   int votesCasted = 0;
   int votesPending = 0;
@@ -87,8 +87,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         }
 
         // ALWAYS set these two values
-        votesCasted = (indiaPopulation * 0.70).toInt();
-        votesPending = (indiaPopulation * 0.30).toInt();
+        votesCasted = (indiaPopulation * 0).toInt();
+        votesPending = (indiaPopulation * 0).toInt();
 
         isLoading = false;
       });
@@ -183,7 +183,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   StatCard(
-                    title: 'Polling',
+                    title: 'Polling Booths',
                     value: polls.toString(),
                     icon: Icons.how_to_vote,
                     color: primary,
