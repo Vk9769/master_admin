@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../models/election.dart';
 
 class ElectionDeclarationPage extends StatefulWidget {
-  const ElectionDeclarationPage({Key? key}) : super(key: key);
+  final Election? election; // 👈 ADD THIS LINE
+
+  const ElectionDeclarationPage({
+    Key? key,
+    this.election, // 👈 ADD THIS
+  }) : super(key: key);
 
   @override
   State<ElectionDeclarationPage> createState() => _ElectionDeclarationPageState();
@@ -48,6 +54,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
 
   // State → District mapping
   final Map<String, List<String>> statesAndDistricts = {
+    'All India': ['All'],
     'Maharashtra': [
       'Mumbai City',
       'Mumbai Suburban',
@@ -93,6 +100,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
   @override
   void initState() {
     super.initState();
+
     electionNameController = TextEditingController();
     electionCodeController = TextEditingController();
     notificationDateController = TextEditingController();
@@ -102,6 +110,53 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
     totalSeatsController = TextEditingController();
     totalVotersController = TextEditingController();
     remarksController = TextEditingController();
+
+    // ================= EDIT MODE PREFILL =================
+    if (widget.election != null) {
+      final e = widget.election!;
+
+      selectedMainCategory = e.category;
+      selectedSubType = e.subType;
+      if (statesAndDistricts.containsKey(e.state)) {
+        selectedState = e.state;
+        selectedDistrict = e.district;
+      } else {
+        selectedState = null;
+        selectedDistrict = null;
+      }
+
+      electionNameController.text = e.name;
+      electionCodeController.text = e.electionCode;
+      remarksController.text = e.remarks;
+
+      notificationDate = e.notificationDate;
+      pollDate = e.pollDate;
+      countingDate = e.countingDate;
+      resultDate = e.resultDate;
+
+      notificationDateController.text =
+          DateFormat('dd/MM/yyyy').format(e.notificationDate);
+      pollDateController.text =
+          DateFormat('dd/MM/yyyy').format(e.pollDate);
+
+      if (e.countingDate != null) {
+        countingDateController.text =
+            DateFormat('dd/MM/yyyy').format(e.countingDate!);
+      }
+
+      if (e.resultDate != null) {
+        resultDateController.text =
+            DateFormat('dd/MM/yyyy').format(e.resultDate!);
+      }
+
+      if (e.totalSeats != null) {
+        totalSeatsController.text = e.totalSeats.toString();
+      }
+
+      if (e.totalVoters != null) {
+        totalVotersController.text = e.totalVoters.toString();
+      }
+    }
   }
 
   @override
@@ -286,8 +341,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
           },
         ),
 
-        title: const Text(
-          'Election Declaration',
+        title: Text(
+          widget.election == null
+              ? 'Election Declaration'
+              : 'Edit Election',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -402,7 +459,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                     _buildDropdownCard(
                       label: 'District *',
                       value: selectedDistrict,
-                      items: statesAndDistricts[selectedState!]!,
+                      items: statesAndDistricts[selectedState!] ?? [],
                       onChanged: (value) {
                         setState(() {
                           selectedDistrict = value;
@@ -549,13 +606,15 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                         child: InkWell(
                           onTap: _declareElection,
                           borderRadius: BorderRadius.circular(12),
-                          child: const Row(
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
                               SizedBox(width: 10),
                               Text(
-                                'Declare Election',
+                                widget.election == null
+                                    ? 'Declare Election'
+                                    : 'Update Election',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,

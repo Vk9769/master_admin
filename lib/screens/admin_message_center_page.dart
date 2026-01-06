@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'news_posting_page.dart';
-
+import 'view_notifications_page.dart';
+import 'send_notification_page.dart';
 
 class AdminMessageCenterPage extends StatelessWidget {
   const AdminMessageCenterPage({super.key});
@@ -11,39 +12,28 @@ class AdminMessageCenterPage extends StatelessWidget {
 
     final List<_MessageItem> messages = [
       _MessageItem(
-        title: 'Super Agent Messages',
-        icon: Icons.supervisor_account,
+        title: 'Send Notification',
+        icon: Icons.notifications_active,
         color1: Colors.blue,
         color2: Colors.blueAccent,
-        description: 'View and manage messages from super agents.',
+        description:
+        'Send notifications to admins, super agents, agents, or voters.',
       ),
       _MessageItem(
-        title: 'Agent Messages',
-        icon: Icons.person,
-        color1: Colors.teal,
-        color2: Colors.tealAccent,
-        description: 'Check messages sent by agents.',
-      ),
-      _MessageItem(
-        title: 'Voter Messages',
-        icon: Icons.people,
-        color1: Colors.orange,
-        color2: Colors.deepOrangeAccent,
-        description: 'Read messages from voters.',
-      ),
-      _MessageItem(
-        title: 'Campaign',
-        icon: Icons.campaign,
-        color1: Colors.purple,
-        color2: Colors.purpleAccent,
-        description: 'Manage ongoing campaign messages.',
+        title: 'View All Notifications',
+        icon: Icons.history,
+        color1: Colors.indigo,
+        color2: Colors.indigoAccent,
+        description:
+        'View all past notifications sent across the system.',
       ),
       _MessageItem(
         title: 'Daily News',
         icon: Icons.newspaper,
         color1: Colors.red,
         color2: Colors.redAccent,
-        description: 'Daily news updates for the admin.',
+        description:
+        'Publish daily news and public announcements.',
       ),
     ];
 
@@ -104,10 +94,10 @@ class _MessageCardState extends State<_MessageCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
-          margin: const EdgeInsets.all(4), // ✅ BUFFER ZONE (IMPORTANT)
+          margin: const EdgeInsets.all(4),
           transform: Matrix4.translationValues(
             0,
-            _hovering ? -6 : 0, // ✅ lift instead of scale
+            _hovering ? -6 : 0,
             0,
           ),
           decoration: BoxDecoration(
@@ -136,13 +126,33 @@ class _MessageCardState extends State<_MessageCard> {
               splashColor: Colors.white24,
               highlightColor: Colors.white10,
               onTap: () {
-                if (widget.item.title == 'Daily News') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const NewsPostingPage(),
-                    ),
-                  );
+                switch (widget.item.title) {
+                  case 'Send Notification':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SendNotificationPage(),
+                      ),
+                    );
+                    break;
+
+                  case 'View All Notifications':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ViewNotificationsPage(),
+                      ),
+                    );
+                    break;
+
+                  case 'Daily News':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NewsPostingPage(),
+                      ),
+                    );
+                    break;
                 }
               },
               child: Padding(
@@ -150,7 +160,8 @@ class _MessageCardState extends State<_MessageCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(widget.item.icon, size: 40, color: Colors.white),
+                    Icon(widget.item.icon,
+                        size: 40, color: Colors.white),
                     const SizedBox(height: 12),
                     Text(
                       widget.item.title,

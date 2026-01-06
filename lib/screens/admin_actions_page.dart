@@ -5,6 +5,7 @@ import 'add_agent_page.dart';
 import 'view_all_agents.dart';
 import 'view_all_voters.dart';
 import 'view_candidate.dart';
+import 'view_election_page.dart';
 import 'election_declaration_page.dart';
 
 
@@ -99,8 +100,26 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildActionCard(
+                                context,
+                                7, // NEW INDEX
+                                Icons.visibility_outlined,
+                                'View Elections',
+                                'View declared elections and schedules',
+                                Colors.deepPurple,
+                                    () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ViewElectionsPage(),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ],
                         ),
+
 
                         const SizedBox(height: 16),
 
@@ -243,6 +262,23 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                         ),
                       ),
                     ),
+
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
+                      7,
+                      Icons.manage_accounts_outlined,
+                      'Manage Elections',
+                      'View, edit, and delete declared elections',
+                      Colors.deepPurple,
+                          () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ViewElectionsPage(),
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 12),
 
                     _buildActionCard(

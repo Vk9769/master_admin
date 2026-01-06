@@ -114,7 +114,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         title = 'Admin Actions';
         break;
       case 2:
-        title = 'Message Center';
+        title = 'Update Center';
         break;
       default:
         title = 'Admin Dashboard';
@@ -177,7 +177,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   crossAxisCount: columns,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 1.15,
+                  mainAxisExtent: constraints.maxWidth < 400 ? 150 : 170,
                 ),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -340,7 +340,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.message),
-            label: 'Message Center',
+            label: 'Update Center',
           ),
         ],
       ),
@@ -633,34 +633,47 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isSmall = MediaQuery.of(context).size.width < 380;
+
     return Card(
       color: background,
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _IconBadge(icon: icon, color: color),
-            const Spacer(),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-                color: color,
+        padding: EdgeInsets.all(isSmall ? 12 : 16),
+          child:
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _IconBadge(icon: icon, color: color),
+
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.bottomLeft,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+         ),
+            ],
+          ),
       ),
     );
   }
