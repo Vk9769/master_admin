@@ -8,7 +8,6 @@ import 'view_candidate.dart';
 import 'view_election_page.dart';
 import 'election_declaration_page.dart';
 
-
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
 
@@ -92,7 +91,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 'Election Declaration',
                                 'Declare election and publish schedule',
                                 Colors.indigo,
-                                    () => Navigator.push(
+                                () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ElectionDeclarationPage(),
@@ -109,7 +108,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 'View Elections',
                                 'View declared elections and schedules',
                                 Colors.deepPurple,
-                                    () => Navigator.push(
+                                () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ViewElectionsPage(),
@@ -119,7 +118,6 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             ),
                           ],
                         ),
-
 
                         const SizedBox(height: 16),
 
@@ -134,7 +132,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 'View Candidates',
                                 'Manage candidate information',
                                 Colors.blue,
-                                    () => Navigator.push(
+                                () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => AdminCandidatesPage(),
@@ -151,7 +149,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 'Add Polling Booth',
                                 'Create new polling location',
                                 Colors.orange,
-                                    () => Navigator.push(
+                                () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => AddPollingBoothPage(),
@@ -168,7 +166,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 'View Booths',
                                 'View all polling locations',
                                 Colors.teal,
-                                    () => Navigator.push(
+                                () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) => ViewAllBoothsPage(),
@@ -193,10 +191,10 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             4,
                             Icons.person_add,
-                            'Add Agent',
+                            'Add Admin/Agent',
                             'Register new polling agent',
                             Colors.purple,
-                                () => Navigator.push(
+                            () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const AddAgentPage(),
@@ -213,7 +211,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             'View Agents',
                             'Manage all agents',
                             Colors.pink,
-                                () => Navigator.push(
+                            () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => const ViewAllAgentsPage(),
@@ -230,7 +228,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             'View Voters',
                             'Access voter records',
                             Colors.green,
-                                () => Navigator.push(
+                            () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ViewAllVotersPage(),
@@ -255,7 +253,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'Election Declaration',
                       'Declare election and publish schedule',
                       Colors.indigo,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => ElectionDeclarationPage(),
@@ -271,7 +269,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'Manage Elections',
                       'View, edit, and delete declared elections',
                       Colors.deepPurple,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ViewElectionsPage(),
@@ -288,7 +286,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'View Candidates',
                       'Manage candidate information',
                       Colors.blue,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => AdminCandidatesPage(),
@@ -303,7 +301,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'Add Polling Booth',
                       'Create new polling location',
                       Colors.orange,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => AddPollingBoothPage(),
@@ -318,11 +316,9 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'View Booths',
                       'View all polling locations',
                       Colors.teal,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => ViewAllBoothsPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => ViewAllBoothsPage()),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -332,14 +328,12 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       4,
                       Icons.person_add,
-                      'Add Agent',
+                      'Add Admin/Agent',
                       'Register new polling agent',
                       Colors.purple,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const AddAgentPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const AddAgentPage()),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -350,7 +344,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'View Agents',
                       'Manage all agents',
                       Colors.pink,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ViewAllAgentsPage(),
@@ -365,11 +359,9 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       'View Voters',
                       'Access voter records',
                       Colors.green,
-                          () => Navigator.push(
+                      () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => ViewAllVotersPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => ViewAllVotersPage()),
                       ),
                     ),
                   ],
@@ -412,14 +404,14 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
   // <CHANGE> Completely redesigned action card with modern glass effect and hover animation
   Widget _buildActionCard(
-      BuildContext context,
-      int index,
-      IconData icon,
-      String title,
-      String subtitle,
-      Color accentColor,
-      VoidCallback onTap,
-      ) {
+    BuildContext context,
+    int index,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color accentColor,
+    VoidCallback onTap,
+  ) {
     final isHovered = _hoveredIndex == index;
 
     return MouseRegion(
@@ -449,23 +441,21 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
             boxShadow: isHovered
                 ? [
-              BoxShadow(
-                color: accentColor.withOpacity(0.25),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ]
+                    BoxShadow(
+                      color: accentColor.withOpacity(0.25),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
                 : [
-              BoxShadow(
-                color: Colors.blue.withOpacity(0.12),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-
-            ],
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
           ),
-          transform: Matrix4.identity()
-            ..translate(0.0, isHovered ? -4.0 : 0.0),
+          transform: Matrix4.identity()..translate(0.0, isHovered ? -4.0 : 0.0),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -490,11 +480,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       width: 1.5,
                     ),
                   ),
-                  child: Icon(
-                    icon,
-                    color: accentColor,
-                    size: 32,
-                  ),
+                  child: Icon(icon, color: accentColor, size: 32),
                 ),
                 const SizedBox(height: 16),
                 // Title

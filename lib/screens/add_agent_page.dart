@@ -72,10 +72,15 @@ class _AddAgentPageState extends State<AddAgentPage> {
   File? _pickedImage;
   bool _loading = false;
 
+  // Voter Search State
+  bool _searchingVoter = false;
+  bool _voterFetched = false;
+  Map<String, dynamic>? _voterData;
+
   // Role Selector
   String? _selectedRole;
 
-// keep a master list of all possible creatable roles
+  // keep a master list of all possible creatable roles
   final List<Map<String, String>> _rolesAll = [
     {'label': 'Super Admin', 'value': 'super_admin'},
     {'label': 'Admin', 'value': 'admin'},
@@ -83,21 +88,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
     {'label': 'Agent', 'value': 'agent'},
   ];
 
-// will hold only the roles allowed for the logged-in creator
+  // will hold only the roles allowed for the logged-in creator
   List<Map<String, String>> _rolesAllowed = [];
 
-// logged-in creator's role (from SharedPreferences set at login)
+  // logged-in creator's role (from SharedPreferences set at login)
   String? _creatorRole;
 
-
   String? _selectedIdType;
-  final List<String> _idTypes = [
-    'Aadhar Card',
-    'Passport',
-    'Driving License',
-    'PAN Card',
-  ];
-
   Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>
   locationHierarchy = {};
 
@@ -143,7 +140,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       print("First Item: ${data.isNotEmpty ? data[0] : 'No Data'}");
 
       Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>> temp =
-      {};
+          {};
 
       for (var booth in data) {
         final state = booth['state']?.toString().trim() ?? '';
@@ -186,7 +183,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     int filled = 0;
     if (_firstNameCtrl.text.trim().isNotEmpty) filled++;
     if (_lastNameCtrl.text.trim().isNotEmpty) filled++;
-    if (_selectedIdType != null) filled++;
     if (_idNumberCtrl.text.trim().isNotEmpty) filled++;
     if (_emailCtrl.text.trim().isNotEmpty) filled++;
     if (_passwordCtrl.text.trim().isNotEmpty) filled++;
@@ -201,6 +197,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     if (_addressCtrl.text.trim().isNotEmpty) filled++;
     return filled / total;
   }
+
   Future<void> _loadRoleAndFilter() async {
     final prefs = await SharedPreferences.getInstance();
     final role = (prefs.getString('role') ?? '').toLowerCase();
@@ -208,10 +205,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
     // must mirror backend permissions
     const Map<String, List<String>> permissions = {
       'master_admin': ['super_admin', 'admin', 'super_agent', 'agent'],
-      'super_admin':  ['admin', 'super_agent', 'agent'],
-      'admin':        ['super_agent', 'agent'],
-      'super_agent':  ['agent'],
-      'agent':        [],
+      'super_admin': ['admin', 'super_agent', 'agent'],
+      'admin': ['super_agent', 'agent'],
+      'super_agent': ['agent'],
+      'agent': [],
     };
 
     final allowedValues = permissions[role] ?? [];
@@ -229,6 +226,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       }
     });
   }
+
   Future<void> _pickImage() async {
     try {
       final picker = ImagePicker();
@@ -246,6 +244,70 @@ class _AddAgentPageState extends State<AddAgentPage> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _searchByVoterId() async {
+    if (_voterIdCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter Voter ID to search')));
+      return;
+    }
+
+    setState(() {
+      _searchingVoter = true;
+      _voterFetched = false;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse(
+          'http://13.61.32.111:3000/api/voter/by-voter-id/${_voterIdCtrl.text.trim()}',
+        ),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Voter not found');
+      }
+
+      final data = jsonDecode(response.body);
+      _voterData = data;
+
+      // 🔽 AUTO-FILL FORM FIELDS
+      _firstNameCtrl.text = data['firstName'] ?? '';
+      _lastNameCtrl.text = data['lastName'] ?? '';
+      _phoneCtrl.text = data['phone'] ?? '';
+      _addressCtrl.text = data['address'] ?? '';
+      _dobCtrl.text = data['dob'] ?? '';
+      _selectedGender = data['gender'];
+
+      _selectedState = data['state'];
+      _selectedDistrict = data['district'];
+      _selectedAssembly = data['assembly_constituency'];
+      _selectedPart = data['boothId'];
+
+      setState(() {
+        _voterFetched = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Voter details loaded successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Search failed: $e')));
+    } finally {
+      setState(() => _searchingVoter = false);
     }
   }
 
@@ -267,12 +329,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
     _selectedGender = null;
     _selectedRole = null;
-    _selectedIdType = null;
 
     _selectedState = null;
     _selectedDistrict = null;
     _selectedAssembly = null;
     _selectedPart = null;
+    _voterFetched = false;
+    _voterData = null;
 
     // ✅ DO NOT CLEAR STATE DATA
     setState(() {});
@@ -284,22 +347,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
   bool _validatePhone(String v) {
     final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
     return digits.length >= 7 && digits.length <= 15;
-  }
-
-  bool _validateIdNumber(String v, String idType) {
-    final cleaned = v.replaceAll(RegExp(r'[^0-9A-Za-z]'), '');
-    switch (idType) {
-      case 'Aadhar Card':
-        return cleaned.length == 12 && RegExp(r'^\d{12}$').hasMatch(cleaned);
-      case 'Passport':
-        return cleaned.length >= 6 && cleaned.length <= 9;
-      case 'Driving License':
-        return cleaned.length >= 10;
-      case 'PAN Card':
-        return cleaned.length == 10;
-      default:
-        return cleaned.isNotEmpty;
-    }
   }
 
   Future<void> _submit() async {
@@ -315,23 +362,22 @@ class _AddAgentPageState extends State<AddAgentPage> {
     }
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_selectedPart == null ||
-        _selectedRole == null ||
-        _selectedIdType == null)
-      return;
+    if (_selectedPart == null || _selectedRole == null) return;
 
-// Validate required dropdowns
-    if (_selectedPart == null || _selectedIdType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please complete required fields')),
-      );
+    // Validate required dropdowns
+    if (_selectedPart == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select booth')));
       return;
     }
 
-// ensure role is selected and allowed
+    // ensure role is selected and allowed
     if (_rolesAllowed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Your role ($_creatorRole) cannot create users')),
+        SnackBar(
+          content: Text('Your role ($_creatorRole) cannot create users'),
+        ),
       );
       return;
     }
@@ -357,7 +403,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
       request.fields['voterId'] = _voterIdCtrl.text.trim();
-      request.fields['idType'] = _selectedIdType!;
+      request.fields['idType'] = 'Aadhar Card';
       request.fields['idNumber'] = _idNumberCtrl.text.trim();
       request.fields['email'] = _emailCtrl.text.trim();
       request.fields['password'] = _passwordCtrl.text.trim();
@@ -437,6 +483,73 @@ class _AddAgentPageState extends State<AddAgentPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 🔍 VOTER SEARCH CARD
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Search Voter by Voter ID',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          TextFormField(
+                            controller: _voterIdCtrl,
+                            decoration: const InputDecoration(
+                              labelText: 'Voter ID',
+                              prefixIcon: Icon(
+                                Icons.how_to_vote,
+                                color: Colors.blue,
+                              ),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: _searchingVoter
+                                  ? null
+                                  : _searchByVoterId,
+                              icon: const Icon(Icons.search),
+                              label: Text(
+                                _searchingVoter ? 'Searching...' : 'Search',
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          if (_voterFetched)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text(
+                                '✔ Voter data fetched. Please upload photo.',
+                                style: TextStyle(color: Colors.green),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Profile Photo Card
                   Card(
                     color: Colors.white,
@@ -456,10 +569,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 : null,
                             child: _pickedImage == null
                                 ? const Icon(
-                              Icons.person,
-                              color: primary,
-                              size: 36,
-                            )
+                                    Icons.person,
+                                    color: primary,
+                                    size: 36,
+                                  )
                                 : null,
                           ),
                           const SizedBox(width: 16),
@@ -468,9 +581,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               'Profile Photo',
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: textPrimary,
-                              ),
+                                    fontWeight: FontWeight.w700,
+                                    color: textPrimary,
+                                  ),
                             ),
                           ),
                           OutlinedButton.icon(
@@ -511,6 +624,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // Name fields
                           TextFormField(
                             controller: _firstNameCtrl,
+                            enabled: !_voterFetched,
+
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'First Name',
@@ -562,58 +677,33 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           ),
                           const SizedBox(height: 12),
 
-                          // ID Type & Number
-                          DropdownButtonFormField<String>(
-                            value: _selectedIdType,
+                          // Aadhaar Number
+                          TextFormField(
+                            controller: _idNumberCtrl,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(12),
+                            ],
                             decoration: const InputDecoration(
-                              labelText: 'Select ID Type',
+                              labelText: 'Aadhaar Number',
                               prefixIcon: Icon(
-                                Icons.card_membership,
+                                Icons.credit_card,
                                 color: primary,
                               ),
                               border: OutlineInputBorder(),
+                              hintText: '12-digit Aadhaar number',
                             ),
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: primary,
-                            ),
-                            items: _idTypes
-                                .map(
-                                  (type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type),
-                              ),
-                            )
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedIdType = v),
-                            validator: (v) =>
-                            v == null ? 'Please select an ID type' : null,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                return 'Aadhaar number is required';
+                              }
+                              if (!RegExp(r'^\d{12}$').hasMatch(v.trim())) {
+                                return 'Enter valid 12-digit Aadhaar number';
+                              }
+                              return null;
+                            },
                           ),
-                          const SizedBox(height: 12),
-                          if (_selectedIdType != null)
-                            TextFormField(
-                              controller: _idNumberCtrl,
-                              textInputAction: TextInputAction.next,
-                              decoration: InputDecoration(
-                                labelText: '$_selectedIdType Number',
-                                prefixIcon: const Icon(
-                                  Icons.confirmation_number,
-                                  color: primary,
-                                ),
-                                border: const OutlineInputBorder(),
-                                hintText: _getIdHint(_selectedIdType!),
-                              ),
-                              validator: (v) {
-                                if (v == null || v.trim().isEmpty) {
-                                  return '${_selectedIdType} number is required';
-                                }
-                                if (!_validateIdNumber(v, _selectedIdType!)) {
-                                  return 'Enter a valid ${_selectedIdType} number';
-                                }
-                                return null;
-                              },
-                            ),
                           const SizedBox(height: 12),
 
                           // Email
@@ -709,15 +799,15 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             items: _genders
                                 .map(
                                   (g) => DropdownMenuItem(
-                                value: g,
-                                child: Text(g),
-                              ),
-                            )
+                                    value: g,
+                                    child: Text(g),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (v) =>
                                 setState(() => _selectedGender = v),
                             validator: (v) =>
-                            v == null ? 'Please select gender' : null,
+                                v == null ? 'Please select gender' : null,
                           ),
 
                           const SizedBox(height: 12),
@@ -744,7 +834,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               );
                               if (pickedDate != null) {
                                 _dobCtrl.text =
-                                "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
+                                    "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
                                 setState(() {});
                               }
                             },
@@ -774,33 +864,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           ),
 
                           const SizedBox(height: 16),
-
-                          // Role Dropdown
-                          // Role Dropdown (filtered by creator permissions)
-                          DropdownButtonFormField<String>(
-                            value: _selectedRole,
-                            decoration: InputDecoration(
-                              labelText: 'Select Role',
-                              border: const OutlineInputBorder(),
-                              helperText: (_rolesAllowed.isEmpty)
-                                  ? 'Your role ($_creatorRole) cannot create any roles'
-                                  : null,
-                            ),
-                            items: _rolesAllowed.map((role) =>
-                                DropdownMenuItem<String>(
-                                  value: role['value'],
-                                  child: Text(role['label']!),
-                                )
-                            ).toList(),
-                            onChanged: _rolesAllowed.isEmpty
-                                ? null // disable if no allowed roles
-                                : (v) => setState(() => _selectedRole = v),
-                            validator: (v) {
-                              if (_rolesAllowed.isEmpty) return null; // nothing to choose = no validation
-                              return v == null ? 'Please select a role' : null;
-                            },
-                          ),
-
                         ],
                       ),
                     ),
@@ -815,17 +878,72 @@ class _AddAgentPageState extends State<AddAgentPage> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          // STATE
+                          // CARD TITLE
+                          Row(
+                            children: const [
+                              Icon(Icons.assignment_ind, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text(
+                                'Role & Booth Assignment',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          const Text(
+                            'Please select role and exact polling location carefully',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+                          // SELECT ROLE
+                          DropdownButtonFormField<String>(
+                            value: _selectedRole,
+                            decoration: InputDecoration(
+                              labelText: 'Select Role',
+                              border: const OutlineInputBorder(),
+                              helperText: (_rolesAllowed.isEmpty)
+                                  ? 'Your role ($_creatorRole) cannot create any roles'
+                                  : null,
+                            ),
+                            items: _rolesAllowed
+                                .map(
+                                  (role) => DropdownMenuItem<String>(
+                                    value: role['value'],
+                                    child: Text(role['label']!),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: _rolesAllowed.isEmpty
+                                ? null
+                                : (v) => setState(() => _selectedRole = v),
+                            validator: (v) {
+                              if (_rolesAllowed.isEmpty) return null;
+                              return v == null ? 'Please select a role' : null;
+                            },
+                          ),
+
+                          const SizedBox(height: 16),
+
                           // STATE
                           DropdownButtonFormField<String>(
                             value: _selectedState,
                             items: _states
                                 .map(
                                   (s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s),
-                              ),
-                            )
+                                    value: s,
+                                    child: Text(s),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (v) {
                               setState(() {
@@ -854,10 +972,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               items: _districts
                                   .map(
                                     (d) => DropdownMenuItem(
-                                  value: d,
-                                  child: Text(d),
-                                ),
-                              )
+                                      value: d,
+                                      child: Text(d),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (v) {
                                 setState(() {
@@ -886,10 +1004,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               items: _assemblies
                                   .map(
                                     (a) => DropdownMenuItem(
-                                  value: a,
-                                  child: Text(a),
-                                ),
-                              )
+                                      value: a,
+                                      child: Text(a),
+                                    ),
+                                  )
                                   .toList(),
                               onChanged: (v) {
                                 setState(() {
@@ -922,7 +1040,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                     alignment: Alignment.centerLeft,
                                     child: Text(
                                       "${p["part_name"]} - ${p["name"]}",
-                                      maxLines: 3,            // ✅ allow up to 3 lines while selected
+                                      maxLines:
+                                          3, // ✅ allow up to 3 lines while selected
                                       overflow: TextOverflow.ellipsis,
                                       softWrap: true,
                                       style: const TextStyle(fontSize: 14),
@@ -935,7 +1054,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 return DropdownMenuItem<String>(
                                   value: p["id"].toString(),
                                   child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
                                     child: Text(
                                       "${p["part_name"]} - ${p["name"]}",
                                       softWrap: true,
@@ -947,15 +1068,16 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 );
                               }).toList(),
 
-                              onChanged: (v) => setState(() => _selectedPart = v),
+                              onChanged: (v) =>
+                                  setState(() => _selectedPart = v),
 
                               decoration: const InputDecoration(
                                 labelText: "Select Booth",
                                 border: OutlineInputBorder(),
                               ),
-                              validator: (v) => v == null ? "Select booth" : null,
+                              validator: (v) =>
+                                  v == null ? "Select booth" : null,
                             ),
-
                         ],
                       ),
                     ),
@@ -1065,22 +1187,5 @@ class _AddAgentPageState extends State<AddAgentPage> {
         ],
       ),
     );
-  }
-
-  String _getIdHint(String idType) {
-    switch (idType) {
-      case 'Aadhar Card':
-        return '12 digits (e.g., 123456789012)';
-      case 'Passport':
-        return '6-9 characters';
-      case 'Voter ID':
-        return 'Minimum 10 characters';
-      case 'Driving License':
-        return 'Minimum 10 characters';
-      case 'PAN Card':
-        return '10 characters (e.g., ABCDE1234F)';
-      default:
-        return '';
-    }
   }
 }
