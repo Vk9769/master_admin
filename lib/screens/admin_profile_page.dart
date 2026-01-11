@@ -143,7 +143,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     }
 
     // 4️⃣ Default avatar
-    return const AssetImage("assets/admin_avatar.png");
+    return const AssetImage("admin_avatar.png");
   }
 
 

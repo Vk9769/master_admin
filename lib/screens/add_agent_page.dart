@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geocoding/geocoding.dart';
 
 /// Booth model from backend
 class Booth {
@@ -65,34 +65,24 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
   String? _selectedGender;
   final List<String> _genders = ['Male', 'Female', 'Other'];
+  File? _pickedImage;        // Mobile
+  Uint8List? _webImageBytes; // Web
+
 
   // State
   bool _obscurePassword = true;
   Booth? _selectedBooth;
-  File? _pickedImage;
   bool _loading = false;
+  String? _existingProfilePhotoUrl;
 
   // Voter Search State
   bool _searchingVoter = false;
   bool _voterFetched = false;
   Map<String, dynamic>? _voterData;
+  static const String _fixedRole = 'AGENT';
 
-  // Role Selector
-  String? _selectedRole;
-
-  // keep a master list of all possible creatable roles
-  final List<Map<String, String>> _rolesAll = [
-    {'label': 'Super Admin', 'value': 'super_admin'},
-    {'label': 'Admin', 'value': 'admin'},
-    {'label': 'Super Agent', 'value': 'super_agent'},
-    {'label': 'Agent', 'value': 'agent'},
-  ];
-
-  // will hold only the roles allowed for the logged-in creator
-  List<Map<String, String>> _rolesAllowed = [];
-
-  // logged-in creator's role (from SharedPreferences set at login)
-  String? _creatorRole;
+  static const String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
 
   String? _selectedIdType;
   Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>
@@ -108,11 +98,14 @@ class _AddAgentPageState extends State<AddAgentPage> {
   String? _selectedAssembly;
   String? _selectedPart;
 
+  List<Map<String, dynamic>> _elections = [];
+  String? _selectedElectionId;
+
   @override
   void initState() {
     super.initState();
     _fetchLocationHierarchy();
-    _loadRoleAndFilter(); // <-- add this
+    _fetchElections();
   }
 
   Future<void> _fetchLocationHierarchy() async {
@@ -122,7 +115,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('http://13.61.32.111:3000/api/admin/booths/full'),
+        Uri.parse('$baseUrl/masteradmin/booths'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -172,14 +165,86 @@ class _AddAgentPageState extends State<AddAgentPage> {
       setState(() {
         locationHierarchy = temp;
         _states = temp.keys.toList()..sort();
+
+        // 🔒 reset dependent selections
+        _selectedState = null;
+        _selectedDistrict = null;
+        _selectedAssembly = null;
+        _selectedPart = null;
       });
     } catch (e) {
       print("Fetch error => $e");
     }
   }
 
+  String? safeDropdownValue(List<String> items, String? value) {
+    if (value == null) return null;
+    final matches = items.where((e) => e == value).toList();
+    return matches.length == 1 ? value : null;
+  }
+  String safeKeyFromList(List list, String prefix) {
+    if (list.isEmpty) return '${prefix}_empty';
+    return '${prefix}_${list.join("_")}';
+  }
+
+  String? normalizeGender(String? apiGender) {
+    if (apiGender == null) return null;
+
+    switch (apiGender.toUpperCase()) {
+      case 'M':
+      case 'MALE':
+        return 'Male';
+      case 'F':
+      case 'FEMALE':
+        return 'Female';
+      case 'O':
+      case 'OTHER':
+        return 'Other';
+      default:
+        return null;
+    }
+  }
+
+  ImageProvider _agentProfileImageProvider() {
+    if (kIsWeb && _webImageBytes != null) {
+      return MemoryImage(_webImageBytes!);
+    }
+
+    if (!kIsWeb && _pickedImage != null) {
+      return FileImage(_pickedImage!);
+    }
+
+    if (_existingProfilePhotoUrl != null &&
+        _existingProfilePhotoUrl!.isNotEmpty &&
+        _existingProfilePhotoUrl!.startsWith("http")) {
+      return NetworkImage(_existingProfilePhotoUrl!);
+    }
+
+    return const AssetImage("admin_avatar.png");
+  }
+
+
+
+
+  Future<void> _fetchElections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) return;
+
+    final res = await http.get(
+      Uri.parse('$baseUrl/masteradmin/elections/active'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        _elections = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+      });
+    }
+  }
+
   double get _formCompletion {
-    int total = 15;
+    int total = 14;
     int filled = 0;
     if (_firstNameCtrl.text.trim().isNotEmpty) filled++;
     if (_lastNameCtrl.text.trim().isNotEmpty) filled++;
@@ -187,7 +252,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     if (_emailCtrl.text.trim().isNotEmpty) filled++;
     if (_passwordCtrl.text.trim().isNotEmpty) filled++;
     if (_phoneCtrl.text.trim().isNotEmpty) filled++;
-    if (_selectedRole != null) filled++;
     if (_selectedState != null) filled++;
     if (_selectedDistrict != null) filled++;
     if (_selectedAssembly != null) filled++;
@@ -198,54 +262,30 @@ class _AddAgentPageState extends State<AddAgentPage> {
     return filled / total;
   }
 
-  Future<void> _loadRoleAndFilter() async {
-    final prefs = await SharedPreferences.getInstance();
-    final role = (prefs.getString('role') ?? '').toLowerCase();
-
-    // must mirror backend permissions
-    const Map<String, List<String>> permissions = {
-      'master_admin': ['super_admin', 'admin', 'super_agent', 'agent'],
-      'super_admin': ['admin', 'super_agent', 'agent'],
-      'admin': ['super_agent', 'agent'],
-      'super_agent': ['agent'],
-      'agent': [],
-    };
-
-    final allowedValues = permissions[role] ?? [];
-
-    setState(() {
-      _creatorRole = role;
-      _rolesAllowed = _rolesAll
-          .where((r) => allowedValues.contains(r['value']))
-          .toList();
-
-      // if previously selected role is not allowed anymore, clear it
-      if (_selectedRole != null &&
-          !_rolesAllowed.any((r) => r['value'] == _selectedRole)) {
-        _selectedRole = null;
-      }
-    });
-  }
 
   Future<void> _pickImage() async {
-    try {
-      final picker = ImagePicker();
-      final res = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 75,
-      );
-      if (res != null) setState(() => _pickedImage = File(res.path));
-    } on PlatformException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Failed to pick image: ${e.message ?? 'unknown error'}',
-          ),
-        ),
-      );
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (picked == null) return;
+
+    if (kIsWeb) {
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _webImageBytes = bytes;
+        _pickedImage = null;
+      });
+    } else {
+      setState(() {
+        _pickedImage = File(picked.path);
+        _webImageBytes = null;
+      });
     }
   }
+
 
   Future<void> _searchByVoterId() async {
     if (_voterIdCtrl.text.trim().isEmpty) {
@@ -266,9 +306,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse(
-          'http://13.61.32.111:3000/api/voter/by-voter-id/${_voterIdCtrl.text.trim()}',
-        ),
+        Uri.parse('$baseUrl/voter/by-voter-id/${_voterIdCtrl.text.trim()}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -283,21 +321,53 @@ class _AddAgentPageState extends State<AddAgentPage> {
       _voterData = data;
 
       // 🔽 AUTO-FILL FORM FIELDS
-      _firstNameCtrl.text = data['firstName'] ?? '';
-      _lastNameCtrl.text = data['lastName'] ?? '';
-      _phoneCtrl.text = data['phone'] ?? '';
-      _addressCtrl.text = data['address'] ?? '';
-      _dobCtrl.text = data['dob'] ?? '';
-      _selectedGender = data['gender'];
+      // 1️⃣ Basic fields
+      _firstNameCtrl.text = data['first_name'] ?? '';
+      _lastNameCtrl.text  = data['last_name'] ?? '';
+      _phoneCtrl.text     = data['phone'] ?? '';
+      _emailCtrl.text     = data['email'] ?? '';
+      _idNumberCtrl.text  = data['gov_id_no'] ?? '';
+      _addressCtrl.text   = data['address'] ?? '';
+      _dobCtrl.text       = data['dob'] ?? '';
+      _selectedGender     = normalizeGender(data['gender']);
+      _existingProfilePhotoUrl = data['profile_photo'];
 
-      _selectedState = data['state'];
-      _selectedDistrict = data['district'];
-      _selectedAssembly = data['assembly_constituency'];
-      _selectedPart = data['boothId'];
+
+// 2️⃣ LOCATION — STEP BY STEP
+      final state = data['state'];
+      final district = data['district'];
+      final assembly = data['assembly_constituency'];
+      final boothId = data['boothid']?.toString();
+
+// STATE
+      if (state != null && locationHierarchy.containsKey(state)) {
+        _selectedState = state;
+        _districts = locationHierarchy[state]!.keys.toList();
+
+        // DISTRICT
+        if (_districts.contains(district)) {
+          _selectedDistrict = district;
+          _assemblies = locationHierarchy[state]![district]!.keys.toList();
+
+          // ASSEMBLY
+          if (_assemblies.contains(assembly)) {
+            _selectedAssembly = assembly;
+            _parts = List<Map<String, dynamic>>.from(
+              locationHierarchy[state]![district]![assembly]!,
+            );
+
+            // BOOTH
+            if (_parts.any((p) => p['id'].toString() == boothId)) {
+              _selectedPart = boothId;
+            }
+          }
+        }
+      }
 
       setState(() {
         _voterFetched = true;
       });
+
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Voter details loaded successfully')),
@@ -328,7 +398,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     _pickedImage = null;
 
     _selectedGender = null;
-    _selectedRole = null;
 
     _selectedState = null;
     _selectedDistrict = null;
@@ -362,7 +431,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     }
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_selectedPart == null || _selectedRole == null) return;
 
     // Validate required dropdowns
     if (_selectedPart == null) {
@@ -372,30 +440,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
       return;
     }
 
-    // ensure role is selected and allowed
-    if (_rolesAllowed.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Your role ($_creatorRole) cannot create users'),
-        ),
-      );
-      return;
-    }
-
-    if (_selectedRole == null ||
-        !_rolesAllowed.any((r) => r['value'] == _selectedRole)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a valid role')),
-      );
-      return;
-    }
-
     setState(() => _loading = true);
 
     try {
-      final uri = Uri.parse(
-        'http://13.61.32.111:3000/api/agent',
-      ); // ✅ UPDATED URL
+      final uri = Uri.parse('$baseUrl/agent');
 
       var request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
@@ -403,12 +451,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
       request.fields['voterId'] = _voterIdCtrl.text.trim();
-      request.fields['idType'] = 'Aadhar Card';
-      request.fields['idNumber'] = _idNumberCtrl.text.trim();
+      request.fields['gov_id_type'] = 'Aadhaar';
+      request.fields['gov_id_no'] = _idNumberCtrl.text.trim();
       request.fields['email'] = _emailCtrl.text.trim();
       request.fields['password'] = _passwordCtrl.text.trim();
       request.fields['phone'] = _phoneCtrl.text.trim();
-      request.fields['role'] = _selectedRole!;
+      request.fields['role'] = 'AGENT';
+      request.fields['electionId'] = _selectedElectionId!;
       request.fields['state'] = _selectedState ?? '';
       request.fields['district'] = _selectedDistrict ?? '';
       request.fields['assembly_constituency'] = _selectedAssembly ?? '';
@@ -417,7 +466,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       request.fields['dob'] = _dobCtrl.text.trim();
       request.fields['address'] = _addressCtrl.text.trim();
 
-      if (_pickedImage != null) {
+      if (!_voterFetched && _pickedImage != null) {
         var pic = await http.MultipartFile.fromPath(
           'profilePhoto',
           _pickedImage!.path,
@@ -469,7 +518,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: const Text('Add Agent/Admin'),
+        title: const Text('Add Agent'),
         backgroundColor: primary,
         centerTitle: true,
       ),
@@ -540,7 +589,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             const Padding(
                               padding: EdgeInsets.only(top: 8),
                               child: Text(
-                                '✔ Voter data fetched. Please upload photo.',
+                                '✔ Voter exists. Photo will not be changed.',
                                 style: TextStyle(color: Colors.green),
                               ),
                             ),
@@ -563,17 +612,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
                         children: [
                           CircleAvatar(
                             radius: 36,
-                            backgroundColor: primary.withOpacity(.12),
-                            backgroundImage: _pickedImage != null
-                                ? FileImage(_pickedImage!)
-                                : null,
-                            child: _pickedImage == null
-                                ? const Icon(
-                                    Icons.person,
-                                    color: primary,
-                                    size: 36,
-                                  )
-                                : null,
+                            backgroundColor: Colors.grey[300],
+                            backgroundImage: _agentProfileImageProvider(),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -601,7 +641,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 width: 1.25,
                               ),
                             ),
-                            onPressed: _pickImage,
+                            onPressed: _voterFetched ? null : _pickImage,
                           ),
                         ],
                       ),
@@ -639,6 +679,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _lastNameCtrl,
+                            enabled: !_voterFetched,
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Last Name',
@@ -657,6 +698,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // ✅ Voter ID Field
                           TextFormField(
                             controller: _voterIdCtrl,
+                            enabled: !_voterFetched,
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Voter ID Number',
@@ -670,8 +712,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             validator: (v) {
                               if (v == null || v.trim().isEmpty)
                                 return 'Voter ID is required';
-                              if (v.trim().length < 10)
-                                return 'Invalid Voter ID (min 10 characters)';
+                              if (v.trim().length < 7)
+                                return 'Invalid Voter ID (min 7 characters)';
                               return null;
                             },
                           ),
@@ -680,6 +722,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // Aadhaar Number
                           TextFormField(
                             controller: _idNumberCtrl,
+                            enabled: !_voterFetched,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
@@ -729,6 +772,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // Password
                           TextFormField(
                             controller: _passwordCtrl,
+                            enabled: !_voterFetched,
                             obscureText: _obscurePassword,
                             textInputAction: TextInputAction.next,
                             decoration: InputDecoration(
@@ -787,29 +831,18 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
                           // Gender Dropdown
                           DropdownButtonFormField<String>(
-                            value: _selectedGender,
+                            value: _genders.contains(_selectedGender) ? _selectedGender : null,
                             decoration: const InputDecoration(
                               labelText: 'Gender',
                               border: OutlineInputBorder(),
                             ),
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down,
-                              color: Colors.blue,
-                            ),
-                            items: _genders
-                                .map(
-                                  (g) => DropdownMenuItem(
-                                    value: g,
-                                    child: Text(g),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedGender = v),
-                            validator: (v) =>
-                                v == null ? 'Please select gender' : null,
+                            items: _genders.map((g) => DropdownMenuItem(
+                              value: g,
+                              child: Text(g),
+                            )).toList(),
+                            onChanged: (v) => setState(() => _selectedGender = v),
+                            validator: (v) => v == null ? 'Please select gender' : null,
                           ),
-
                           const SizedBox(height: 12),
 
                           // DOB Picker
@@ -906,37 +939,39 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
                           const SizedBox(height: 16),
                           // SELECT ROLE
-                          DropdownButtonFormField<String>(
-                            value: _selectedRole,
-                            decoration: InputDecoration(
-                              labelText: 'Select Role',
-                              border: const OutlineInputBorder(),
-                              helperText: (_rolesAllowed.isEmpty)
-                                  ? 'Your role ($_creatorRole) cannot create any roles'
-                                  : null,
+                          ListTile(
+                            leading: const Icon(
+                              Icons.security,
+                              color: Colors.blue,
                             ),
-                            items: _rolesAllowed
-                                .map(
-                                  (role) => DropdownMenuItem<String>(
-                                    value: role['value'],
-                                    child: Text(role['label']!),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: _rolesAllowed.isEmpty
-                                ? null
-                                : (v) => setState(() => _selectedRole = v),
-                            validator: (v) {
-                              if (_rolesAllowed.isEmpty) return null;
-                              return v == null ? 'Please select a role' : null;
-                            },
+                            title: const Text("Role"),
+                            subtitle: const Text("Agent (Part Level)"),
                           ),
 
                           const SizedBox(height: 16),
 
+                          DropdownButtonFormField<String>(
+                            value: _selectedElectionId,
+                            items: _elections.map((e) {
+                              return DropdownMenuItem(
+                                value: e['id'].toString(),
+                                child: Text(e['election_name']),
+                              );
+                            }).toList(),
+                            onChanged: (v) => setState(() => _selectedElectionId = v),
+                            decoration: const InputDecoration(
+                              labelText: "Select Election",
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) => v == null ? 'Select election' : null,
+                          ),
+
+
                           // STATE
                           DropdownButtonFormField<String>(
-                            value: _selectedState,
+                            key: ValueKey(safeKeyFromList(_states, 'state')),
+                            // ✅ ADD HERE
+                            value: safeDropdownValue(_states, _selectedState),
                             items: _states
                                 .map(
                                   (s) => DropdownMenuItem(
@@ -968,7 +1003,11 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // DISTRICT
                           if (_selectedState != null)
                             DropdownButtonFormField<String>(
-                              value: _selectedDistrict,
+                              key: ValueKey(safeKeyFromList(_districts, 'district')),
+                              value: safeDropdownValue(
+                                _districts,
+                                _selectedDistrict,
+                              ),
                               items: _districts
                                   .map(
                                     (d) => DropdownMenuItem(
@@ -1000,7 +1039,12 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // ASSEMBLY
                           if (_selectedDistrict != null)
                             DropdownButtonFormField<String>(
-                              value: _selectedAssembly,
+                              key: ValueKey(safeKeyFromList(_assemblies, 'assembly')),
+                              // ✅ ADD HERE
+                              value: safeDropdownValue(
+                                _assemblies,
+                                _selectedAssembly,
+                              ),
                               items: _assemblies
                                   .map(
                                     (a) => DropdownMenuItem(
@@ -1018,6 +1062,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                   _selectedPart = null;
                                 });
                               },
+
                               decoration: const InputDecoration(
                                 labelText: "Select Assembly Constituency",
                                 border: OutlineInputBorder(),
@@ -1029,47 +1074,26 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           // BOOTH
                           if (_selectedAssembly != null)
                             DropdownButtonFormField<String>(
+                              key: ValueKey(
+                                _parts.isEmpty
+                                    ? 'booth_empty'
+                                    : 'booth_${_parts.map((e) => e['id']).join("_")}',
+                              ),
                               isExpanded: true,
-                              itemHeight: null,
-                              value: _selectedPart,
+                              menuMaxHeight: 300,
 
-                              // ✅ This fixes the selected text overflow
-                              selectedItemBuilder: (context) {
-                                return _parts.map((p) {
-                                  return Container(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      "${p["part_name"]} - ${p["name"]}",
-                                      maxLines:
-                                          3, // ✅ allow up to 3 lines while selected
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: true,
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  );
-                                }).toList();
-                              },
+                              value: _parts.any((p) => p['id'].toString() == _selectedPart)
+                                  ? _selectedPart
+                                  : null,
 
                               items: _parts.map((p) {
                                 return DropdownMenuItem<String>(
                                   value: p["id"].toString(),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 6,
-                                    ),
-                                    child: Text(
-                                      "${p["part_name"]} - ${p["name"]}",
-                                      softWrap: true,
-                                      maxLines: 5,
-                                      overflow: TextOverflow.visible,
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
-                                  ),
+                                  child: Text("${p["part_name"]} - ${p["name"]}"),
                                 );
                               }).toList(),
 
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
+                              onChanged: (v) => setState(() => _selectedPart = v),
 
                               decoration: const InputDecoration(
                                 labelText: "Select Booth",
