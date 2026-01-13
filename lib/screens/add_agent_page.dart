@@ -417,95 +417,104 @@ class _AddAgentPageState extends State<AddAgentPage> {
     final digits = v.replaceAll(RegExp(r'[^0-9]'), '');
     return digits.length >= 7 && digits.length <= 15;
   }
+  bool _validateAndLog() {
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) {
+      debugPrint('❌ FORM VALIDATION FAILED – check highlighted fields');
+    }
+    return valid;
+  }
 
   Future<void> _submit() async {
+    print("🟢 SUBMIT BUTTON CLICKED");
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
     if (token == null) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No token found, please login again')),
+        const SnackBar(content: Text('Session expired. Please login again')),
       );
-      setState(() => _loading = false);
       return;
     }
 
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_selectedElectionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an election')),
+      );
+      return;
+    }
+    if (!_validateAndLog()) return;
 
-    // Validate required dropdowns
-    if (_selectedPart == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select booth')));
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      print("❌ FORM VALIDATION FAILED");
       return;
     }
 
+    print("🟢 FORM VALIDATION PASSED");
     setState(() => _loading = true);
 
     try {
       final uri = Uri.parse('$baseUrl/agent');
-
-      var request = http.MultipartRequest('POST', uri);
+      final request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
 
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
-      request.fields['voterId'] = _voterIdCtrl.text.trim();
-      request.fields['gov_id_type'] = 'Aadhaar';
-      request.fields['gov_id_no'] = _idNumberCtrl.text.trim();
+      request.fields['voterId'] =
+      _voterFetched && _voterData != null
+          ? _voterData!['voter_id']
+          : _voterIdCtrl.text.trim();
+
+      request.fields['idType'] = 'Aadhaar';
+      request.fields['idNumber'] = _idNumberCtrl.text.trim();
       request.fields['email'] = _emailCtrl.text.trim();
-      request.fields['password'] = _passwordCtrl.text.trim();
       request.fields['phone'] = _phoneCtrl.text.trim();
-      request.fields['role'] = 'AGENT';
-      request.fields['electionId'] = _selectedElectionId!;
-      request.fields['state'] = _selectedState ?? '';
-      request.fields['district'] = _selectedDistrict ?? '';
-      request.fields['assembly_constituency'] = _selectedAssembly ?? '';
-      request.fields['boothId'] = _selectedPart!; // ✅ Correct
       request.fields['gender'] = _selectedGender ?? '';
       request.fields['dob'] = _dobCtrl.text.trim();
       request.fields['address'] = _addressCtrl.text.trim();
+      request.fields['boothId'] = _selectedPart!;
+      request.fields['electionId'] = _selectedElectionId!;
 
-      if (!_voterFetched && _pickedImage != null) {
-        var pic = await http.MultipartFile.fromPath(
-          'profilePhoto',
-          _pickedImage!.path,
-          contentType: MediaType('image', 'jpeg'),
-        );
-        request.files.add(pic);
+      if (!_voterFetched) {
+        request.fields['password'] = _passwordCtrl.text.trim();
       }
 
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
+      if (!_voterFetched && _pickedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profilePhoto',
+            _pickedImage!.path,
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
+      }
+
+      print("🟢 SENDING API REQUEST");
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print("STATUS => ${response.statusCode}");
+      print("BODY => ${response.body}");
 
       if (response.statusCode == 200) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agent added successfully')),
+          const SnackBar(content: Text('Agent saved successfully')),
         );
         _resetForm();
       } else {
-        try {
-          final resBody = jsonDecode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${resBody['error'] ?? 'Unknown error'}'),
-            ),
-          );
-        } catch (_) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: ${response.body}')));
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response.body)),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Request failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Request failed: $e')),
+      );
     } finally {
       setState(() => _loading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -672,11 +681,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               prefixIcon: Icon(Icons.badge, color: primary),
                               border: OutlineInputBorder(),
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'First name is required'
-                                : null,
+                        validator: (v) {
+                          if (_voterFetched) return null;
+                          if (v == null || v.trim().isEmpty) return 'First name is required';
+                          return null;
+                        },
                           ),
-                          const SizedBox(height: 12),
+                        const SizedBox(height: 12),
                           TextFormField(
                             controller: _lastNameCtrl,
                             enabled: !_voterFetched,
@@ -689,11 +700,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               ),
                               border: OutlineInputBorder(),
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Last name is required'
-                                : null,
+                            validator: (v) {
+                              if (_voterFetched) return null;
+                              if (v == null || v.trim().isEmpty) return 'Last name is required';
+                              return null;
+                            },
                           ),
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
 
                           // ✅ Voter ID Field
                           TextFormField(
@@ -710,10 +723,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               hintText: 'e.g., XYZ1234567',
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty)
-                                return 'Voter ID is required';
-                              if (v.trim().length < 7)
-                                return 'Invalid Voter ID (min 7 characters)';
+                              if (_voterFetched) return null;
+                              if (v == null || v.trim().isEmpty) return 'Voter ID is required';
+                              if (v.trim().length < 7) return 'Invalid Voter ID';
                               return null;
                             },
                           ),
@@ -738,12 +750,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               hintText: '12-digit Aadhaar number',
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Aadhaar number is required';
-                              }
-                              if (!RegExp(r'^\d{12}$').hasMatch(v.trim())) {
-                                return 'Enter valid 12-digit Aadhaar number';
-                              }
+                              if (_voterFetched) return null;
+                              if (v == null || v.trim().isEmpty) return 'Aadhaar number is required';
+                              if (!RegExp(r'^\d{12}$').hasMatch(v.trim()))
+                                return 'Enter valid 12-digit Aadhaar';
                               return null;
                             },
                           ),
@@ -760,10 +770,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               border: OutlineInputBorder(),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty)
-                                return 'Email is required';
-                              if (!_validateEmail(v))
-                                return 'Enter a valid email';
+                              if (_voterFetched) return null;
+                              if (v == null || v.trim().isEmpty) return 'Email is required';
+                              if (!_validateEmail(v)) return 'Enter a valid email';
                               return null;
                             },
                           ),
@@ -793,6 +802,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               ),
                             ),
                             validator: (v) {
+                              if (_voterFetched) return null; // 🔥 THIS IS THE FIX
                               if (v == null || v.trim().isEmpty)
                                 return 'Password is required';
                               if (v.trim().length < 6)
@@ -818,10 +828,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               border: OutlineInputBorder(),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty)
-                                return 'Phone is required';
-                              if (!_validatePhone(v))
-                                return 'Enter a valid phone';
+                              if (_voterFetched) return null;
+                              if (v == null || v.trim().isEmpty) return 'Phone is required';
+                              if (!_validatePhone(v)) return 'Enter a valid phone';
                               return null;
                             },
                           ),
