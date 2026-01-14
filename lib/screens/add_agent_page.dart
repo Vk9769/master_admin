@@ -974,7 +974,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             ),
                             validator: (v) => v == null ? 'Select election' : null,
                           ),
-
+                          const SizedBox(height: 16),
 
                           // STATE
                           DropdownButtonFormField<String>(
