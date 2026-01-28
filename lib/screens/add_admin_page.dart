@@ -42,14 +42,14 @@ class Booth {
   String toString() => '$name ($id)';
 }
 
-class AddAgentPage extends StatefulWidget {
-  const AddAgentPage({super.key});
+class AddAdminPage extends StatefulWidget {
+  const AddAdminPage({super.key});
 
   @override
-  State<AddAgentPage> createState() => _AddAgentPageState();
+  State<AddAdminPage> createState() => _AddAdminPageState();
 }
 
-class _AddAgentPageState extends State<AddAgentPage> {
+class _AddAdminPageState extends State<AddAdminPage> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
@@ -78,7 +78,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
   bool _searchingVoter = false;
   bool _voterFetched = false;
   Map<String, dynamic>? _voterData;
-  static const String _fixedRole = 'AGENT';
+  static const String _fixedRole = 'ADMIN';
 
   static const String baseUrl =
       "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
@@ -88,23 +88,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
   locationHierarchy = {};
 
   List<String> _states = [];
-  List<String> _districts = [];
-  List<String> _assemblies = [];
-  List<Map<String, dynamic>> _parts = [];
 
   String? _selectedState;
-  String? _selectedDistrict;
-  String? _selectedAssembly;
-  String? _selectedPart;
-
-  List<Map<String, dynamic>> _elections = [];
-  String? _selectedElectionId;
 
   @override
   void initState() {
     super.initState();
     _fetchLocationHierarchy();
-    _fetchElections();
   }
 
   Future<void> _fetchLocationHierarchy() async {
@@ -143,11 +133,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
         final boothId = booth['id']?.toString();
         final boothName = booth['name']?.toString() ?? 'Unknown Booth';
 
-        if (state.isEmpty ||
-            district.isEmpty ||
-            assembly.isEmpty ||
-            part.isEmpty)
-          continue;
+        if (state.isEmpty) continue;
 
         temp[state] ??= {};
         temp[state]![district] ??= {};
@@ -167,9 +153,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
         // 🔒 reset dependent selections
         _selectedState = null;
-        _selectedDistrict = null;
-        _selectedAssembly = null;
-        _selectedPart = null;
       });
     } catch (e) {
       print("Fetch error => $e");
@@ -223,23 +206,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     return const AssetImage("admin_avatar.png");
   }
 
-  Future<void> _fetchElections() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (token == null) return;
-
-    final res = await http.get(
-      Uri.parse('$baseUrl/masteradmin/elections/active'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-
-    if (res.statusCode == 200) {
-      setState(() {
-        _elections = List<Map<String, dynamic>>.from(jsonDecode(res.body));
-      });
-    }
-  }
-
   double get _formCompletion {
     int total = 14;
     int filled = 0;
@@ -250,9 +216,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
     if (_passwordCtrl.text.trim().isNotEmpty) filled++;
     if (_phoneCtrl.text.trim().isNotEmpty) filled++;
     if (_selectedState != null) filled++;
-    if (_selectedDistrict != null) filled++;
-    if (_selectedAssembly != null) filled++;
-    if (_selectedPart != null) filled++; // ✅ Correct booth selection
     if (_selectedGender != null) filled++;
     if (_dobCtrl.text.trim().isNotEmpty) filled++;
     if (_addressCtrl.text.trim().isNotEmpty) filled++;
@@ -329,33 +292,10 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
       // 2️⃣ LOCATION — STEP BY STEP
       final state = data['state'];
-      final district = data['district'];
-      final assembly = data['assembly_constituency'];
-      final boothId = data['boothid']?.toString();
 
       // STATE
       if (state != null && locationHierarchy.containsKey(state)) {
         _selectedState = state;
-        _districts = locationHierarchy[state]!.keys.toList();
-
-        // DISTRICT
-        if (_districts.contains(district)) {
-          _selectedDistrict = district;
-          _assemblies = locationHierarchy[state]![district]!.keys.toList();
-
-          // ASSEMBLY
-          if (_assemblies.contains(assembly)) {
-            _selectedAssembly = assembly;
-            _parts = List<Map<String, dynamic>>.from(
-              locationHierarchy[state]![district]![assembly]!,
-            );
-
-            // BOOTH
-            if (_parts.any((p) => p['id'].toString() == boothId)) {
-              _selectedPart = boothId;
-            }
-          }
-        }
       }
 
       setState(() {
@@ -393,9 +333,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     _selectedGender = null;
 
     _selectedState = null;
-    _selectedDistrict = null;
-    _selectedAssembly = null;
-    _selectedPart = null;
+
     _voterFetched = false;
     _voterData = null;
 
@@ -431,12 +369,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
       return;
     }
 
-    if (_selectedElectionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an election')),
-      );
-      return;
-    }
     if (!_validateAndLog()) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -448,7 +380,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     setState(() => _loading = true);
 
     try {
-      final uri = Uri.parse('$baseUrl/agent');
+      final uri = Uri.parse('$baseUrl/admin');
       final request = http.MultipartRequest('POST', uri);
       request.headers['Authorization'] = 'Bearer $token';
 
@@ -465,8 +397,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
       request.fields['gender'] = _selectedGender ?? '';
       request.fields['dob'] = _dobCtrl.text.trim();
       request.fields['address'] = _addressCtrl.text.trim();
-      request.fields['boothId'] = _selectedPart!;
-      request.fields['electionId'] = _selectedElectionId!;
+      request.fields['role'] = _fixedRole;
+      request.fields['state'] = _selectedState!;
 
       if (!_voterFetched) {
         request.fields['password'] = _passwordCtrl.text.trim();
@@ -491,7 +423,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agent saved successfully')),
+          const SnackBar(content: Text('Admin saved successfully')),
         );
         _resetForm();
       } else {
@@ -519,7 +451,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: const Text('Add Agent'),
+        title: const Text('Add Admin'),
         backgroundColor: primary,
         centerTitle: true,
       ),
@@ -957,41 +889,22 @@ class _AddAgentPageState extends State<AddAgentPage> {
                           ),
 
                           const SizedBox(height: 16),
-                          // SELECT ROLE
+
+                          // ROLE (FIXED)
                           ListTile(
                             leading: const Icon(
                               Icons.security,
                               color: Colors.blue,
                             ),
                             title: const Text("Role"),
-                            subtitle: const Text("Agent (Part Level)"),
+                            subtitle: const Text("Admin"),
                           ),
 
                           const SizedBox(height: 16),
 
-                          DropdownButtonFormField<String>(
-                            value: _selectedElectionId,
-                            items: _elections.map((e) {
-                              return DropdownMenuItem(
-                                value: e['id'].toString(),
-                                child: Text(e['election_name']),
-                              );
-                            }).toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedElectionId = v),
-                            decoration: const InputDecoration(
-                              labelText: "Select Election",
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) =>
-                                v == null ? 'Select election' : null,
-                          ),
-                          const SizedBox(height: 16),
-
-                          // STATE
+                          // STATE ONLY
                           DropdownButtonFormField<String>(
                             key: ValueKey(safeKeyFromList(_states, 'state')),
-                            // ✅ ADD HERE
                             value: safeDropdownValue(_states, _selectedState),
                             items: _states
                                 .map(
@@ -1004,135 +917,14 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             onChanged: (v) {
                               setState(() {
                                 _selectedState = v;
-                                _districts = locationHierarchy[v]!.keys
-                                    .toList();
-                                _selectedDistrict = null;
-                                _assemblies = [];
-                                _selectedAssembly = null;
-                                _parts = [];
-                                _selectedPart = null;
                               });
                             },
                             decoration: const InputDecoration(
                               labelText: "Select State",
                               border: OutlineInputBorder(),
                             ),
+                            validator: (v) => v == null ? 'Select state' : null,
                           ),
-
-                          const SizedBox(height: 16),
-
-                          // DISTRICT
-                          if (_selectedState != null)
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                safeKeyFromList(_districts, 'district'),
-                              ),
-                              value: safeDropdownValue(
-                                _districts,
-                                _selectedDistrict,
-                              ),
-                              items: _districts
-                                  .map(
-                                    (d) => DropdownMenuItem(
-                                      value: d,
-                                      child: Text(d),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedDistrict = v;
-                                  _assemblies =
-                                      locationHierarchy[_selectedState]![v]!
-                                          .keys
-                                          .toList();
-                                  _selectedAssembly = null;
-                                  _parts = [];
-                                  _selectedPart = null;
-                                });
-                              },
-                              decoration: const InputDecoration(
-                                labelText: "Select District",
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-
-                          const SizedBox(height: 16),
-
-                          // ASSEMBLY
-                          if (_selectedDistrict != null)
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                safeKeyFromList(_assemblies, 'assembly'),
-                              ),
-                              // ✅ ADD HERE
-                              value: safeDropdownValue(
-                                _assemblies,
-                                _selectedAssembly,
-                              ),
-                              items: _assemblies
-                                  .map(
-                                    (a) => DropdownMenuItem(
-                                      value: a,
-                                      child: Text(a),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedAssembly = v;
-                                  _parts = List<Map<String, dynamic>>.from(
-                                    locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
-                                  );
-                                  _selectedPart = null;
-                                });
-                              },
-
-                              decoration: const InputDecoration(
-                                labelText: "Select Assembly Constituency",
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-
-                          const SizedBox(height: 16),
-
-                          // BOOTH
-                          if (_selectedAssembly != null)
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                _parts.isEmpty
-                                    ? 'booth_empty'
-                                    : 'booth_${_parts.map((e) => e['id']).join("")}',
-                              ),
-                              isExpanded: true,
-                              menuMaxHeight: 300,
-
-                              value:
-                                  _parts.any(
-                                    (p) => p['id'].toString() == _selectedPart,
-                                  )
-                                  ? _selectedPart
-                                  : null,
-
-                              items: _parts.map((p) {
-                                return DropdownMenuItem<String>(
-                                  value: p["id"].toString(),
-                                  child: Text(
-                                    "${p["part_name"]} - ${p["name"]}",
-                                  ),
-                                );
-                              }).toList(),
-
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
-
-                              decoration: const InputDecoration(
-                                labelText: "Select Booth",
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) =>
-                                  v == null ? "Select booth" : null,
-                            ),
                         ],
                       ),
                     ),
@@ -1212,7 +1004,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                   onPressed: _loading ? null : _submit,
                                   icon: const Icon(Icons.person_add_alt_1),
                                   label: Text(
-                                    _loading ? 'Adding...' : 'Add Agent',
+                                    _loading ? 'Adding...' : 'Add Admin',
                                   ),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: primary,

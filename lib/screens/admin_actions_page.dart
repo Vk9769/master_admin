@@ -7,6 +7,9 @@ import 'view_all_voters.dart';
 import 'view_candidate.dart';
 import 'view_election_page.dart';
 import 'election_declaration_page.dart';
+import 'add_super_admin_page.dart';
+import 'add_admin_page.dart';
+import 'add_super_agent_page.dart';
 
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
@@ -24,7 +27,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -184,6 +187,64 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                     // Agents & Voters Section
                     _buildSectionHeader('Personnel & Voters'),
                     const SizedBox(height: 16),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            8,
+                            Icons.admin_panel_settings,
+                            'Add Super Admin',
+                            'Create system super administrator',
+                            Colors.redAccent,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AddSuperAdminPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            9,
+                            Icons.manage_accounts,
+                            'Add Admin',
+                            'Create election administrator',
+                            Colors.blueGrey,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AddAdminPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            10,
+                            Icons.supervisor_account,
+                            'Add Super Agent',
+                            'Create senior polling agent',
+                            Colors.deepOrange,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AddSuperAgentPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
                     Row(
                       children: [
                         Expanded(
@@ -191,7 +252,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             4,
                             Icons.person_add,
-                            'Add Admin/Agent',
+                            'Add Agent',
                             'Register new polling agent',
                             Colors.purple,
                             () => Navigator.push(
@@ -324,11 +385,61 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                     const SizedBox(height: 24),
                     _buildSectionHeader('Personnel & Voters'),
                     const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      8,
+                      Icons.admin_panel_settings,
+                      'Add Super Admin',
+                      'Create system super administrator',
+                      Colors.redAccent,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddSuperAdminPage(),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      9,
+                      Icons.manage_accounts,
+                      'Add Admin',
+                      'Create election administrator',
+                      Colors.blueGrey,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AddAdminPage()),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      10,
+                      Icons.supervisor_account,
+                      'Add Super Agent',
+                      'Create senior polling agent',
+                      Colors.deepOrange,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AddSuperAgentPage(),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     _buildActionCard(
                       context,
                       4,
                       Icons.person_add,
-                      'Add Admin/Agent',
+                      'Add Agent',
                       'Register new polling agent',
                       Colors.purple,
                       () => Navigator.push(
@@ -388,6 +499,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
           ),
         ),
         const SizedBox(height: 8),
+
         Container(
           width: 40,
           height: 3,
@@ -430,13 +542,11 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                   : Colors.blueGrey.withOpacity(0.25),
               width: isHovered ? 1.5 : 1,
             ),
+
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Color(0xFFF1F6FF), // light blue shade
-              ],
+              colors: [Colors.white, const Color(0xFFF1F6FF)],
             ),
 
             boxShadow: isHovered
