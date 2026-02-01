@@ -10,6 +10,7 @@ import 'election_declaration_page.dart';
 import 'add_super_admin_page.dart';
 import 'add_admin_page.dart';
 import 'add_super_agent_page.dart';
+import 'add_ward_page.dart';
 
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
@@ -144,6 +145,26 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                               ),
                             ),
                             const SizedBox(width: 16),
+
+                            Expanded(
+                              child: _buildActionCard(
+                                context,
+                                11, // NEW UNIQUE INDEX
+                                Icons.account_tree_outlined,
+                                'Add Ward',
+                                'Create and manage wards',
+                                Colors.cyan,
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddWardPage(),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
                             Expanded(
                               child: _buildActionCard(
                                 context,
@@ -354,7 +375,25 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
+                    // ✅ ADD WARD (MOBILE)
+                    _buildActionCard(
+                      context,
+                      11,
+                      Icons.account_tree_outlined,
+                      'Add Ward',
+                      'Create and manage wards',
+                      Colors.cyan,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => AddWardPage()),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     _buildActionCard(
                       context,
                       2,
