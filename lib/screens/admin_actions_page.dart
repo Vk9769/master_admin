@@ -11,6 +11,7 @@ import 'add_super_admin_page.dart';
 import 'add_admin_page.dart';
 import 'add_super_agent_page.dart';
 import 'add_ward_page.dart';
+import 'manage_booths_page.dart';
 
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
@@ -126,6 +127,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                         const SizedBox(height: 16),
 
                         // Existing row shifted DOWN
+                        // Existing row shifted DOWN
                         Row(
                           children: [
                             Expanded(
@@ -149,7 +151,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             Expanded(
                               child: _buildActionCard(
                                 context,
-                                11, // NEW UNIQUE INDEX
+                                11,
                                 Icons.account_tree_outlined,
                                 'Add Ward',
                                 'Create and manage wards',
@@ -181,7 +183,28 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                                 ),
                               ),
                             ),
+
                             const SizedBox(width: 16),
+
+                            Expanded(
+                              child: _buildActionCard(
+                                context,
+                                12, // 👈 NEW UNIQUE INDEX (important)
+                                Icons.how_to_vote_outlined,
+                                'Manage Booths',
+                                'Create, update and manage booths',
+                                Colors.blue,
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ManageBoothsPage(),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
                             Expanded(
                               child: _buildActionCard(
                                 context,
@@ -409,6 +432,22 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      12,
+                      Icons.how_to_vote_outlined,
+                      'Manage Booths',
+                      'Create, update and manage booths',
+                      Colors.blue,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ManageBoothsPage()),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     _buildActionCard(
                       context,
                       3,
