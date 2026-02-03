@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddWardPage extends StatefulWidget {
   AddWardPage({super.key});
@@ -12,6 +16,12 @@ class _AddWardPageState extends State<AddWardPage> {
   late FocusNode _wardNumberFocus;
   late FocusNode _wardNameFocus;
   late FocusNode _descriptionFocus;
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
+  final RxList<Map<String, dynamic>> elections = <Map<String, dynamic>>[].obs;
+  final RxInt selectedElectionId = 0.obs;
 
   final RxMap<String, bool> fieldErrors = {
     'election': false,
@@ -28,12 +38,6 @@ class _AddWardPageState extends State<AddWardPage> {
 
   final RxString selectedElection = 'Select Election'.obs;
 
-  final List<String> elections = [
-    'Select Election',
-    'Municipal Election 2025',
-    'Assembly Election 2024',
-    'Lok Sabha Election 2024',
-  ];
 
   @override
   void initState() {
@@ -41,6 +45,7 @@ class _AddWardPageState extends State<AddWardPage> {
     _wardNumberFocus = FocusNode();
     _wardNameFocus = FocusNode();
     _descriptionFocus = FocusNode();
+    _fetchElections();
   }
 
   @override
@@ -53,6 +58,65 @@ class _AddWardPageState extends State<AddWardPage> {
     descriptionController.dispose();
     super.dispose();
   }
+
+  Future<void> _fetchElections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    if (token == null) return;
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/masteradmin/elections"),
+      headers: {
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final List list = jsonDecode(response.body);
+
+      elections.assignAll(list
+          .where((e) => e['status'] != 'past') // safety
+          .map((e) => {
+        "id": e['id'],
+        "name": e['election_name'],
+      })
+          .toList());
+    }
+  }
+
+  Future<void> _createWard() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+
+    if (token == null) return;
+
+    final response = await http.post(
+      Uri.parse("$baseUrl/api/wards"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "election_id": selectedElectionId.value,
+        "ward_no": wardNumberController.text.trim(),
+        "ward_name": wardNameController.text.trim(),
+        "description": descriptionController.text.trim(),
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      _showSuccessDialog();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Failed to create ward"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
 
   int _calculateProgress() {
     int completed = 0;
@@ -78,13 +142,14 @@ class _AddWardPageState extends State<AddWardPage> {
   }
 
   bool _validateForm() {
-    fieldErrors['election'] = selectedElection.value == 'Select Election';
+    fieldErrors['election'] = selectedElectionId.value == 0;
     fieldErrors['wardNumber'] = wardNumberController.text.isEmpty;
     fieldErrors['wardName'] = wardNameController.text.isEmpty;
     fieldErrors['description'] = descriptionController.text.isEmpty;
 
     return !fieldErrors.values.contains(true);
   }
+
 
   void _showSuccessDialog() {
     showDialog(
@@ -403,18 +468,13 @@ class _AddWardPageState extends State<AddWardPage> {
     );
   }
 
-  Widget _buildDropdownField({
+  Widget _buildElectionDropdownField({
     required String label,
-    required RxString selectedValue,
-    required List<String> options,
+    required RxInt selectedElectionId,
+    required RxList<Map<String, dynamic>> elections,
     required String fieldKey,
   }) {
     return Obx(() {
-      // ✅ SAFETY: Ensure selected value always exists in options
-      final String dropdownValue = options.contains(selectedValue.value)
-          ? selectedValue.value
-          : options.first;
-
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -446,48 +506,55 @@ class _AddWardPageState extends State<AddWardPage> {
                 ),
               ],
             ),
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: dropdownValue,
-              items: options.map((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF1F2937),
-                        fontWeight: FontWeight.w500,
-                      ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: selectedElectionId.value == 0
+                    ? null
+                    : selectedElectionId.value,
+                hint: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    'Select Election',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFFB4BFCD),
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
-                );
-              }).toList(),
-              onChanged: (newValue) {
-                if (newValue != null && newValue != options.first) {
-                  selectedValue.value = newValue;
-                  setState(() {});
-                }
-              },
-              underline: const SizedBox(),
-              dropdownColor: Colors.white,
-              icon: const Padding(
-                padding: EdgeInsets.only(right: 12),
-                child: Icon(
-                  Icons.arrow_drop_down_rounded,
-                  color: Color(0xFF3B82F6),
-                  size: 24,
                 ),
-              ),
-              style: const TextStyle(
-                color: Color(0xFF1F2937),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                items: elections.map((e) {
+                  return DropdownMenuItem<int>(
+                    value: e['id'],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        e['name'],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF1F2937),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedElectionId.value = value ?? 0;
+                  setState(() {});
+                },
+                icon: const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: Color(0xFF3B82F6),
+                    size: 24,
+                  ),
+                ),
+                dropdownColor: Colors.white,
               ),
             ),
           ),
@@ -500,7 +567,7 @@ class _AddWardPageState extends State<AddWardPage> {
                   Icon(Icons.error_rounded, size: 16, color: Colors.red[400]),
                   const SizedBox(width: 6),
                   Text(
-                    'Please select an option',
+                    'Please select an election',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.red[400],
@@ -569,10 +636,10 @@ class _AddWardPageState extends State<AddWardPage> {
               ),
               child: Column(
                 children: [
-                  _buildDropdownField(
+                  _buildElectionDropdownField(
                     label: 'Select Election',
-                    selectedValue: selectedElection,
-                    options: elections,
+                    selectedElectionId: selectedElectionId,
+                    elections: elections,
                     fieldKey: 'election',
                   ),
                   const SizedBox(height: 16),
@@ -615,10 +682,10 @@ class _AddWardPageState extends State<AddWardPage> {
                   onPressed: isSubmitting.value
                       ? null
                       : () async {
-                          if (_validateForm()) {
-                            isSubmitting.value = true;
-                            await Future.delayed(const Duration(seconds: 2));
-                            isSubmitting.value = false;
+                    if (_validateForm()) {
+                      isSubmitting.value = true;
+                      await _createWard();
+                      isSubmitting.value = false;
                             _showSuccessDialog();
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(

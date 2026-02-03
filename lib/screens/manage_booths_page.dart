@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class ManageBoothsPage extends StatefulWidget {
   const ManageBoothsPage({super.key});
 
@@ -10,46 +12,121 @@ class ManageBoothsPage extends StatefulWidget {
 }
 
 class _ManageBoothsPageState extends State<ManageBoothsPage> {
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
   // -------------------------------
   // STATE
   // -------------------------------
   bool isLoading = false;
 
-  String selectedElection = '';
-  String selectedState = '';
-  String selectedDistrict = '';
+  int selectedElectionId = 0;
+  String filterMode = ''; // AC | WARD
   String selectedAC = '';
-  String selectedWard = '';
-  String filterMode = ''; // 'AC' or 'WARD'
+  int selectedWardId = 0;
 
+  List<Map<String, dynamic>> elections = [];
+  List<Map<String, dynamic>> wards = [];
   List<Map<String, dynamic>> booths = [];
+  List<String> acs = [];
+
   Set<int> selectedBoothIds = {};
 
-  // Dummy dropdown data (replace with API later)
-  final elections = ['Election 2025', 'Assembly 2024'];
-  final states = ['Maharashtra'];
-  final districts = ['Pune', 'Mumbai'];
-  final acs = ['AC 101', 'AC 102'];
-  final wards = ['Ward 1', 'Ward 2'];
+  Future<void> fetchElections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+    if (token == null) return;
+
+    final res = await http.get(
+      Uri.parse("$baseUrl/masteradmin/elections"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      setState(() {
+        elections = list
+            .where((e) => e['status'] != 'past')
+            .map((e) => {
+          "id": e['id'],
+          "name": e['election_name'],
+          "type": e['election_type'],
+        })
+            .toList();
+      });
+    }
+  }
+
+  Future<void> fetchACs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+    if (token == null || selectedElectionId == 0) return;
+
+    final res = await http.get(
+      Uri.parse(
+        "$baseUrl/api/booths/acs-for-election?election_id=$selectedElectionId",
+      ),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        acs = List<String>.from(jsonDecode(res.body));
+      });
+    }
+  }
+
+  Future<void> fetchWards() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+    if (token == null || selectedElectionId == 0) return;
+
+    final res = await http.get(
+      Uri.parse("$baseUrl/api/wards?election_id=$selectedElectionId"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        wards = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+      });
+    }
+  }
 
   // -------------------------------
   // FETCH BOOTHS
   // -------------------------------
   Future<void> fetchBooths() async {
+    if (selectedElectionId == 0) return;
+
     setState(() => isLoading = true);
 
-    // 🔗 API PLACEHOLDER
-    // final response = await http.get(Uri.parse('YOUR_API/booths'));
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+    if (token == null) return;
 
-    await Future.delayed(const Duration(seconds: 1));
+    String url =
+        "$baseUrl/api/booths/for-election?election_id=$selectedElectionId";
 
-    // Dummy data
-    booths = [
-      {'id': 12, 'name': 'Booth 12 - ZP School'},
-      {'id': 18, 'name': 'Booth 18 - Community Hall'},
-      {'id': 23, 'name': 'Booth 23 - Municipal Office'},
-      {'id': 41, 'name': 'Booth 41 - College Campus'},
-    ];
+    if (filterMode == 'AC' && selectedAC.isNotEmpty) {
+      url += "&ac_name_no=$selectedAC";
+    }
+
+    if (filterMode == 'WARD' && selectedWardId != 0) {
+      url += "&ward_id=$selectedWardId";
+    }
+
+    final res = await http.get(
+      Uri.parse(url),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        booths = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+      });
+    }
 
     setState(() => isLoading = false);
   }
@@ -58,32 +135,50 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
   // ALLOCATE BOOTHS
   // -------------------------------
   Future<void> allocateBooths() async {
-    if (selectedBoothIds.isEmpty || selectedElection.isEmpty) return;
+    if (selectedBoothIds.isEmpty || selectedElectionId == 0) return;
 
-    final payload = {
-      "election_id": 5, // 🔁 replace from selectedElection mapping
-      "booth_ids": selectedBoothIds.toList(),
-    };
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("auth_token");
+    if (token == null) return;
 
-    // 🔗 API CALL
-    // await http.post(
-    //   Uri.parse('YOUR_API/election-booths/allocate'),
-    //   headers: {"Content-Type": "application/json"},
-    //   body: jsonEncode(payload),
-    // );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Booths allocated successfully')),
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/election-booths/allocate"),
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode({
+        "election_id": selectedElectionId,
+        "booth_ids": selectedBoothIds.toList(),
+      }),
     );
 
-    setState(() => selectedBoothIds.clear());
+    if (res.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Booths allocated successfully")),
+      );
+      setState(() => selectedBoothIds.clear());
+      fetchBooths(); // refresh
+    }
   }
+
 
   @override
   void initState() {
     super.initState();
-    fetchBooths();
+    fetchElections();
   }
+
+  List<String> get uniqueACs {
+    final set = <String>{};
+    for (final b in booths) {
+      if (b['ac_name_no'] != null && b['ac_name_no'].toString().isNotEmpty) {
+        set.add(b['ac_name_no']);
+      }
+    }
+    return set.toList();
+  }
+
 
   // -------------------------------
   // UI
@@ -122,53 +217,67 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
                 _buildSectionTitle('📋 Election & Location Filters'),
                 const SizedBox(height: 16),
 
-                _dropdown('Select Election', elections, (v) {
-                  selectedElection = v;
-                }),
+                _electionDropdown(),
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: _dropdown(
-                        'State',
-                        states,
-                        (v) => selectedState = v,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _dropdown(
-                        'District',
-                        districts,
-                        (v) => selectedDistrict = v,
-                      ),
-                    ),
-                  ],
-                ),
+                if (selectedElectionId != 0)
+                  buildDropdown<String>(
+                    label: 'Filter By',
+                    value: filterMode.isEmpty ? null : filterMode,
+                    items: const [
+                      DropdownMenuItem(value: 'AC', child: Text('AC Wise')),
+                      DropdownMenuItem(value: 'WARD', child: Text('Ward Wise')),
+                    ],
+                    onChanged: (v) {
+                      setState(() {
+                        filterMode = v ?? '';
+                        selectedAC = '';
+                        selectedWardId = 0;
+                        booths.clear();
+                        selectedBoothIds.clear();
+                      });
+                    },
+                  ),
 
-                if (selectedDistrict.isNotEmpty) ...[
-                  _dropdown('Filter By', const ['AC', 'Ward'], (v) {
-                    filterMode = v;
-                    selectedAC = '';
-                    selectedWard = '';
-                    booths.clear();
-                    selectedBoothIds.clear();
-                  }),
-                ],
 
-                // Show AC dropdown ONLY if filterMode == 'AC'
                 if (filterMode == 'AC')
-                  _dropdown('Assembly Constituency', acs, (v) {
-                    selectedAC = v;
-                    fetchBooths();
-                  }),
+                  buildDropdown<String>(
+                    label: 'Assembly Constituency',
+                    value: selectedAC.isEmpty ? null : selectedAC,
+                    items: acs
+                        .map(
+                          (ac) => DropdownMenuItem<String>(
+                        value: ac,
+                        child: Text(ac),
+                      ),
+                    )
+                        .toList(),
+                    onChanged: (v) {
+                      setState(() {
+                        selectedAC = v ?? '';
+                      });
+                      fetchBooths();
+                    },
+                  ),
 
-                // Show Ward dropdown ONLY if filterMode == 'Ward'
-                if (filterMode == 'Ward')
-                  _dropdown('Ward', wards, (v) {
-                    selectedWard = v;
-                    fetchBooths();
-                  }),
+
+                if (filterMode == 'WARD')
+                  buildDropdown<int>(
+                    label: 'Ward',
+                    value: selectedWardId == 0 ? null : selectedWardId,
+                    items: wards.map((w) {
+                      return DropdownMenuItem<int>(
+                        value: w['id'],
+                        child: Text("${w['ward_no']} - ${w['ward_name']}"),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      setState(() {
+                        selectedWardId = v ?? 0;
+                      });
+                      fetchBooths();
+                    },
+                  ),
+
 
                 const SizedBox(height: 24),
 
@@ -200,12 +309,6 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
                         const Color(0xFF4CAF50),
                       ),
                       _buildActionButton(
-                        'District Wise',
-                        Icons.map_outlined,
-                        selectedDistrict.isEmpty ? null : _selectDistrictWise,
-                        const Color(0xFF2196F3),
-                      ),
-                      _buildActionButton(
                         'AC Wise',
                         Icons.domain_outlined,
                         filterMode == 'AC' && selectedAC.isNotEmpty
@@ -216,7 +319,7 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
                       _buildActionButton(
                         'Ward Wise',
                         Icons.location_on_outlined,
-                        filterMode == 'Ward' && selectedWard.isNotEmpty
+                        filterMode == 'WARD' && selectedWardId != 0
                             ? _selectWardWise
                             : null,
                         const Color(0xFF7B1FA2),
@@ -256,9 +359,9 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
                       ),
                       color: Colors.white,
                       child:
-                          (filterMode.isEmpty ||
-                              (filterMode == 'AC' && selectedAC.isEmpty) ||
-                              (filterMode == 'Ward' && selectedWard.isEmpty))
+                      (filterMode.isEmpty ||
+                          (filterMode == 'AC' && selectedAC.isEmpty) ||
+                          (filterMode == 'WARD' && selectedWardId == 0))
                           ? Center(
                               child: Padding(
                                 padding: const EdgeInsets.all(32),
@@ -445,6 +548,36 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
     );
   }
 
+  Widget _electionDropdown() {
+    return DropdownButtonFormField<int>(
+      decoration: const InputDecoration(
+        labelText: 'Select Election',
+      ),
+      value: selectedElectionId == 0 ? null : selectedElectionId,
+      items: elections.map((e) {
+        return DropdownMenuItem<int>(
+          value: e['id'],
+          child: Text(e['name']),
+        );
+      }).toList(),
+      onChanged: (value) {
+        setState(() {
+          selectedElectionId = value ?? 0;
+          filterMode = '';
+          selectedAC = '';
+          selectedWardId = 0;
+          booths.clear();
+          selectedBoothIds.clear();
+          acs.clear();
+        });
+
+        fetchWards(); // municipal
+        fetchACs();   // assembly
+      },
+    );
+  }
+
+
   void _selectAllVisible() {
     setState(() {
       selectedBoothIds = booths.map<int>((b) => b['id'] as int).toSet();
@@ -457,10 +590,6 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
     });
   }
 
-  void _selectDistrictWise() {
-    if (selectedDistrict.isEmpty) return;
-    _selectAllVisible();
-  }
 
   void _selectACWise() {
     if (selectedAC.isEmpty) return;
@@ -468,19 +597,24 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
   }
 
   void _selectWardWise() {
-    if (selectedWard.isEmpty) return;
+    if (selectedWardId == 0) return;
     _selectAllVisible();
   }
 
   // ========== HELPER: REUSABLE DROPDOWN ==========
-  Widget _dropdown(
-    String label,
-    List<String> items,
-    Function(String) onChanged,
-  ) {
+  // ========== HELPER: UNIVERSAL DROPDOWN ==========
+  Widget buildDropdown<T>({
+    required String label,
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    bool isExpanded = true,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<String>(
+      child: DropdownButtonFormField<T>(
+        value: value,
+        isExpanded: isExpanded,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(
@@ -488,8 +622,6 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
-          hintText: label,
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
           filled: true,
           fillColor: Colors.white,
           contentPadding: const EdgeInsets.symmetric(
@@ -506,7 +638,10 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF1E88E5), width: 2),
+            borderSide: const BorderSide(
+              color: Color(0xFF1E88E5),
+              width: 2,
+            ),
           ),
           prefixIcon: const Icon(
             Icons.filter_list_rounded,
@@ -514,33 +649,14 @@ class _ManageBoothsPageState extends State<ManageBoothsPage> {
             size: 20,
           ),
         ),
-        items: items
-            .map(
-              (e) => DropdownMenuItem(
-                value: e,
-                child: Text(
-                  e,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-        onChanged: (v) {
-          if (v != null) {
-            setState(() {
-              onChanged(v);
-            });
-          }
-        },
+        items: items,
+        onChanged: onChanged,
         icon: const Icon(
           Icons.arrow_drop_down_rounded,
           color: Color(0xFF1E88E5),
           size: 24,
         ),
+        dropdownColor: Colors.white,
       ),
     );
   }
