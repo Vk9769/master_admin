@@ -5,7 +5,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class ElectionDeclarationPage extends StatefulWidget {
   final Election? election; // 👈 ADD THIS LINE
 
@@ -15,7 +14,8 @@ class ElectionDeclarationPage extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ElectionDeclarationPage> createState() => _ElectionDeclarationPageState();
+  State<ElectionDeclarationPage> createState() =>
+      _ElectionDeclarationPageState();
 }
 
 class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
@@ -24,64 +24,517 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
     'Parliamentary Elections': [
       'Lok Sabha General Elections',
       'Lok Sabha By-Elections',
-      'Lok Sabha Mid-Term Polls'
+      'Lok Sabha Mid-Term Polls',
     ],
     'Upper House Elections': [
       'Rajya Sabha Regular Elections',
       'Rajya Sabha Bye-Elections',
-      'Rajya Sabha Special Elections'
+      'Rajya Sabha Special Elections',
     ],
     'State Assembly Elections': [
       'State Vidhan Sabha - General Elections',
       'State Vidhan Sabha - By-Elections',
-      'State Vidhan Sabha - Special Elections'
+      'State Vidhan Sabha - Special Elections',
     ],
     'Local Body Elections': [
       'Municipal Corporation Elections',
       'Municipal Council Elections',
       'Nagar Panchayat Elections',
       'Village Panchayat Elections',
-      'Ward Committee Elections'
+      'Ward Committee Elections',
     ],
     'Union Territory Elections': [
       'UT Assembly Elections',
       'UT Assembly By-Elections',
-      'UT Local Body Elections'
+      'UT Local Body Elections',
     ],
     'Constitutional Posts': [
       'Presidential Election',
       'Vice-Presidential Election',
       'Governor Elections',
-      'Lieutenant Governor Appointment'
+      'Lieutenant Governor Appointment',
     ],
   };
 
   // State → District mapping
   final Map<String, List<String>> statesAndDistricts = {
     'All India': ['All'],
-    'Maharashtra': [
-      'Mumbai City',
-      'Mumbai Suburban',
-      'Thane',
-      'Pune',
-      'Nagpur',
+
+    // ================= STATES =================
+    'Andhra Pradesh': [
+      'Anakapalli',
+      'Anantapur',
+      'Annamayya',
+      'Bapatla',
+      'Chittoor',
+      'Dr. B.R. Ambedkar Konaseema',
+      'East Godavari',
+      'Eluru',
+      'Guntur',
+      'Kakinada',
+      'Krishna',
+      'Kurnool',
+      'Nandyal',
+      'Nellore',
+      'Palnadu',
+      'Parvathipuram Manyam',
+      'Prakasam',
+      'Srikakulam',
+      'Sri Sathya Sai',
+      'Tirupati',
+      'Visakhapatnam',
+      'Vizianagaram',
+      'West Godavari',
+      'YSR Kadapa',
     ],
+
+    'Arunachal Pradesh': [
+      'Anjaw',
+      'Changlang',
+      'Dibang Valley',
+      'East Kameng',
+      'East Siang',
+      'Itanagar Capital Complex',
+      'Kamle',
+      'Kra Daadi',
+      'Kurung Kumey',
+      'Lepa Rada',
+      'Lohit',
+      'Longding',
+      'Lower Dibang Valley',
+      'Lower Siang',
+      'Lower Subansiri',
+      'Namsai',
+      'Pakke Kessang',
+      'Papum Pare',
+      'Shi Yomi',
+      'Siang',
+      'Tawang',
+      'Tirap',
+      'Upper Siang',
+      'Upper Subansiri',
+      'West Kameng',
+      'West Siang',
+    ],
+
+    'Assam': [
+      'Baksa',
+      'Barpeta',
+      'Biswanath',
+      'Bongaigaon',
+      'Cachar',
+      'Charaideo',
+      'Chirang',
+      'Darrang',
+      'Dhemaji',
+      'Dhubri',
+      'Dibrugarh',
+      'Dima Hasao',
+      'Goalpara',
+      'Golaghat',
+      'Hailakandi',
+      'Hojai',
+      'Jorhat',
+      'Kamrup',
+      'Kamrup Metropolitan',
+      'Karbi Anglong',
+      'Karimganj',
+      'Kokrajhar',
+      'Lakhimpur',
+      'Majuli',
+      'Morigaon',
+      'Nagaon',
+      'Nalbari',
+      'Sivasagar',
+      'Sonitpur',
+      'South Salmara-Mankachar',
+      'Tinsukia',
+      'Udalguri',
+      'West Karbi Anglong',
+    ],
+
+    'Bihar': [
+      'Araria',
+      'Arwal',
+      'Aurangabad',
+      'Banka',
+      'Begusarai',
+      'Bhagalpur',
+      'Bhojpur',
+      'Buxar',
+      'Darbhanga',
+      'East Champaran',
+      'Gaya',
+      'Gopalganj',
+      'Jamui',
+      'Jehanabad',
+      'Kaimur',
+      'Katihar',
+      'Khagaria',
+      'Kishanganj',
+      'Lakhisarai',
+      'Madhepura',
+      'Madhubani',
+      'Munger',
+      'Muzaffarpur',
+      'Nalanda',
+      'Nawada',
+      'Patna',
+      'Purnia',
+      'Rohtas',
+      'Saharsa',
+      'Samastipur',
+      'Saran',
+      'Sheikhpura',
+      'Sheohar',
+      'Sitamarhi',
+      'Siwan',
+      'Supaul',
+      'Vaishali',
+      'West Champaran',
+    ],
+
+    'Chhattisgarh': [
+      'Balod',
+      'Baloda Bazar',
+      'Balrampur',
+      'Bastar',
+      'Bemetara',
+      'Bijapur',
+      'Bilaspur',
+      'Dantewada',
+      'Dhamtari',
+      'Durg',
+      'Gariaband',
+      'Gaurela-Pendra-Marwahi',
+      'Janjgir-Champa',
+      'Jashpur',
+      'Kabirdham',
+      'Kanker',
+      'Kondagaon',
+      'Korba',
+      'Koriya',
+      'Mahasamund',
+      'Manendragarh-Chirmiri-Bharatpur',
+      'Mohla-Manpur-Ambagarh Chowki',
+      'Mungeli',
+      'Narayanpur',
+      'Raigarh',
+      'Raipur',
+      'Rajnandgaon',
+      'Sarangarh-Bilaigarh',
+      'Sakti',
+      'Sukma',
+      'Surajpur',
+      'Surguja',
+    ],
+
+    'Goa': ['North Goa', 'South Goa'],
+
     'Gujarat': [
       'Ahmedabad',
-      'Surat',
-      'Vadodara',
+      'Amreli',
+      'Anand',
+      'Aravalli',
+      'Banaskantha',
+      'Bharuch',
+      'Bhavnagar',
+      'Botad',
+      'Chhota Udaipur',
+      'Dahod',
+      'Dang',
+      'Devbhoomi Dwarka',
+      'Gandhinagar',
+      'Gir Somnath',
+      'Jamnagar',
+      'Junagadh',
+      'Kheda',
+      'Kutch',
+      'Mahisagar',
+      'Mehsana',
+      'Morbi',
+      'Narmada',
+      'Navsari',
+      'Panchmahal',
+      'Patan',
+      'Porbandar',
       'Rajkot',
+      'Sabarkantha',
+      'Surat',
+      'Surendranagar',
+      'Tapi',
+      'Vadodara',
+      'Valsad',
     ],
+
+    'Haryana': [
+      'Ambala',
+      'Bhiwani',
+      'Charkhi Dadri',
+      'Faridabad',
+      'Fatehabad',
+      'Gurugram',
+      'Hisar',
+      'Jhajjar',
+      'Jind',
+      'Kaithal',
+      'Karnal',
+      'Kurukshetra',
+      'Mahendragarh',
+      'Nuh',
+      'Palwal',
+      'Panchkula',
+      'Panipat',
+      'Rewari',
+      'Rohtak',
+      'Sirsa',
+      'Sonipat',
+      'Yamunanagar',
+    ],
+
+    'Himachal Pradesh': [
+      'Bilaspur',
+      'Chamba',
+      'Hamirpur',
+      'Kangra',
+      'Kinnaur',
+      'Kullu',
+      'Lahaul and Spiti',
+      'Mandi',
+      'Shimla',
+      'Sirmaur',
+      'Solan',
+      'Una',
+    ],
+
+    'Jharkhand': [
+      'Bokaro',
+      'Chatra',
+      'Deoghar',
+      'Dhanbad',
+      'Dumka',
+      'East Singhbhum',
+      'Garhwa',
+      'Giridih',
+      'Godda',
+      'Gumla',
+      'Hazaribagh',
+      'Jamtara',
+      'Khunti',
+      'Koderma',
+      'Latehar',
+      'Lohardaga',
+      'Pakur',
+      'Palamu',
+      'Ramgarh',
+      'Ranchi',
+      'Sahebganj',
+      'Seraikela-Kharsawan',
+      'Simdega',
+      'West Singhbhum',
+    ],
+
     'Karnataka': [
+      'Bagalkot',
+      'Ballari',
+      'Belagavi',
+      'Bengaluru Rural',
       'Bengaluru Urban',
+      'Bidar',
+      'Chamarajanagar',
+      'Chikkaballapur',
+      'Chikkamagaluru',
+      'Chitradurga',
+      'Dakshina Kannada',
+      'Davanagere',
+      'Dharwad',
+      'Gadag',
+      'Hassan',
+      'Haveri',
+      'Kalaburagi',
+      'Kodagu',
+      'Kolar',
+      'Koppal',
+      'Mandya',
       'Mysuru',
-      'Mangaluru',
+      'Raichur',
+      'Ramanagara',
+      'Shivamogga',
+      'Tumakuru',
+      'Udupi',
+      'Uttara Kannada',
+      'Vijayanagara',
+      'Yadgir',
     ],
+
+    'Kerala': [
+      'Alappuzha',
+      'Ernakulam',
+      'Idukki',
+      'Kannur',
+      'Kasaragod',
+      'Kollam',
+      'Kottayam',
+      'Kozhikode',
+      'Malappuram',
+      'Palakkad',
+      'Pathanamthitta',
+      'Thiruvananthapuram',
+      'Thrissur',
+      'Wayanad',
+    ],
+
+    'Madhya Pradesh': [
+      'Agar Malwa',
+      'Alirajpur',
+      'Anuppur',
+      'Ashoknagar',
+      'Balaghat',
+      'Barwani',
+      'Betul',
+      'Bhind',
+      'Bhopal',
+      'Burhanpur',
+      'Chhatarpur',
+      'Chhindwara',
+      'Damoh',
+      'Datia',
+      'Dewas',
+      'Dhar',
+      'Dindori',
+      'Guna',
+      'Gwalior',
+      'Harda',
+      'Hoshangabad',
+      'Indore',
+      'Jabalpur',
+      'Jhabua',
+      'Katni',
+      'Khandwa',
+      'Khargone',
+      'Mandla',
+      'Mandsaur',
+      'Morena',
+      'Narsinghpur',
+      'Neemuch',
+      'Panna',
+      'Raisen',
+      'Rajgarh',
+      'Ratlam',
+      'Rewa',
+      'Sagar',
+      'Satna',
+      'Sehore',
+      'Seoni',
+      'Shahdol',
+      'Shajapur',
+      'Sheopur',
+      'Shivpuri',
+      'Sidhi',
+      'Singrauli',
+      'Tikamgarh',
+      'Ujjain',
+      'Umaria',
+      'Vidisha',
+    ],
+
+    'Maharashtra': [
+      'Ahmednagar',
+      'Akola',
+      'Amravati',
+      'Aurangabad',
+      'Beed',
+      'Bhandara',
+      'Buldhana',
+      'Chandrapur',
+      'Dhule',
+      'Gadchiroli',
+      'Gondia',
+      'Hingoli',
+      'Jalgaon',
+      'Jalna',
+      'Kolhapur',
+      'Latur',
+      'Mumbai City',
+      'Mumbai Suburban',
+      'Nagpur',
+      'Nanded',
+      'Nandurbar',
+      'Nashik',
+      'Osmanabad',
+      'Palghar',
+      'Parbhani',
+      'Pune',
+      'Raigad',
+      'Ratnagiri',
+      'Sangli',
+      'Satara',
+      'Sindhudurg',
+      'Solapur',
+      'Thane',
+      'Wardha',
+      'Washim',
+      'Yavatmal',
+    ],
+
+    // ================= UNION TERRITORIES =================
+    'Delhi': [
+      'Central Delhi',
+      'East Delhi',
+      'New Delhi',
+      'North Delhi',
+      'North East Delhi',
+      'North West Delhi',
+      'South Delhi',
+      'South East Delhi',
+      'South West Delhi',
+      'West Delhi',
+    ],
+
+    'Jammu and Kashmir': [
+      'Anantnag',
+      'Bandipora',
+      'Baramulla',
+      'Budgam',
+      'Doda',
+      'Ganderbal',
+      'Jammu',
+      'Kathua',
+      'Kishtwar',
+      'Kulgam',
+      'Kupwara',
+      'Poonch',
+      'Pulwama',
+      'Rajouri',
+      'Ramban',
+      'Reasi',
+      'Samba',
+      'Shopian',
+      'Srinagar',
+      'Udhampur',
+    ],
+
+    'Ladakh': ['Kargil', 'Leh'],
+
+    'Puducherry': ['Karaikal', 'Mahe', 'Puducherry', 'Yanam'],
+
+    'Andaman and Nicobar Islands': [
+      'Nicobar',
+      'North and Middle Andaman',
+      'South Andaman',
+    ],
+
+    'Chandigarh': ['Chandigarh'],
+    'Dadra and Nagar Haveli and Daman and Diu': [
+      'Dadra and Nagar Haveli',
+      'Daman',
+      'Diu',
+    ],
+    'Lakshadweep': ['Lakshadweep'],
   };
 
   final String baseUrl =
       "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
-
 
   // Form Controllers
   late TextEditingController electionNameController;
@@ -142,19 +595,21 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
       countingDate = e.countingDate;
       resultDate = e.resultDate;
 
-      notificationDateController.text =
-          DateFormat('dd/MM/yyyy').format(e.notificationDate);
-      pollDateController.text =
-          DateFormat('dd/MM/yyyy').format(e.pollDate);
+      notificationDateController.text = DateFormat(
+        'dd/MM/yyyy',
+      ).format(e.notificationDate);
+      pollDateController.text = DateFormat('dd/MM/yyyy').format(e.pollDate);
 
       if (e.countingDate != null) {
-        countingDateController.text =
-            DateFormat('dd/MM/yyyy').format(e.countingDate!);
+        countingDateController.text = DateFormat(
+          'dd/MM/yyyy',
+        ).format(e.countingDate!);
       }
 
       if (e.resultDate != null) {
-        resultDateController.text =
-            DateFormat('dd/MM/yyyy').format(e.resultDate!);
+        resultDateController.text = DateFormat(
+          'dd/MM/yyyy',
+        ).format(e.resultDate!);
       }
 
       if (e.totalSeats != null) {
@@ -181,7 +636,11 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context, TextEditingController controller, Function(DateTime) onDateSelected) async {
+  Future<void> _selectDate(
+    BuildContext context,
+    TextEditingController controller,
+    Function(DateTime) onDateSelected,
+  ) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -204,7 +663,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
     if (picked != null) {
       setState(() {
         controller.text =
-        '${picked.day.toString().padLeft(2, '0')}/'
+            '${picked.day.toString().padLeft(2, '0')}/'
             '${picked.month.toString().padLeft(2, '0')}/'
             '${picked.year}';
         onDateSelected(picked);
@@ -246,16 +705,17 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
           : Uri.parse("$baseUrl/masteradmin/elections");
 
       final response = await (isEdit
-          ? http.put(uri,
-          headers: _headers(token), body: jsonEncode(body))
-          : http.post(uri,
-          headers: _headers(token), body: jsonEncode(body)));
+          ? http.put(uri, headers: _headers(token), body: jsonEncode(body))
+          : http.post(uri, headers: _headers(token), body: jsonEncode(body)));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                isEdit ? "Election updated successfully" : "Election declared successfully"),
+              isEdit
+                  ? "Election updated successfully"
+                  : "Election declared successfully",
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -269,9 +729,9 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
       }
     } catch (e) {
       debugPrint("Submit election error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Server error")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Server error")));
     }
   }
 
@@ -290,7 +750,6 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
     return int.tryParse(value);
   }
 
-
   void _declareElection() {
     if (selectedMainCategory == null ||
         selectedSubType == null ||
@@ -298,7 +757,9 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
         selectedDistrict == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select election type, sub-type, state and district'),
+          content: Text(
+            'Please select election type, sub-type, state and district',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -343,10 +804,16 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                 _buildDetailRow('District:', selectedDistrict!),
                 _buildDetailRow('Election Name:', electionNameController.text),
                 _buildDetailRow('Election Code:', electionCodeController.text),
-                _buildDetailRow('Notification Date:', notificationDateController.text),
+                _buildDetailRow(
+                  'Notification Date:',
+                  notificationDateController.text,
+                ),
                 _buildDetailRow('Poll Date:', pollDateController.text),
                 if (countingDateController.text.isNotEmpty)
-                  _buildDetailRow('Counting Date:', countingDateController.text),
+                  _buildDetailRow(
+                    'Counting Date:',
+                    countingDateController.text,
+                  ),
                 if (resultDateController.text.isNotEmpty)
                   _buildDetailRow('Result Date:', resultDateController.text),
                 if (totalSeatsController.text.isNotEmpty)
@@ -401,10 +868,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Color(0xFF1F2937),
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: Color(0xFF1F2937), fontSize: 13),
             ),
           ),
         ],
@@ -429,9 +893,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
         ),
 
         title: Text(
-          widget.election == null
-              ? 'Election Declaration'
-              : 'Edit Election',
+          widget.election == null ? 'Election Declaration' : 'Edit Election',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -457,11 +919,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.how_to_vote,
-                    color: Colors.white,
-                    size: 40,
-                  ),
+                  const Icon(Icons.how_to_vote, color: Colors.white, size: 40),
                   const SizedBox(height: 12),
                   const Text(
                     'Declare New Election',
@@ -524,7 +982,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
 
                   const SizedBox(height: 16),
 
-// State Dropdown
+                  // State Dropdown
                   if (selectedSubType != null) ...[
                     const SizedBox(height: 16),
                     _buildDropdownCard(
@@ -540,7 +998,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                     ),
                   ],
 
-// District Dropdown
+                  // District Dropdown
                   if (selectedState != null) ...[
                     const SizedBox(height: 16),
                     _buildDropdownCard(
@@ -589,9 +1047,13 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   _buildDateField(
                     controller: notificationDateController,
                     label: 'Notification Date *',
-                    onTap: () => _selectDate(context, notificationDateController, (date) {
-                      setState(() => notificationDate = date);
-                    }),
+                    onTap: () => _selectDate(
+                      context,
+                      notificationDateController,
+                      (date) {
+                        setState(() => notificationDate = date);
+                      },
+                    ),
                   ),
 
                   const SizedBox(height: 12),
@@ -600,9 +1062,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   _buildDateField(
                     controller: pollDateController,
                     label: 'Poll Date *',
-                    onTap: () => _selectDate(context, pollDateController, (date) {
-                      setState(() => pollDate = date);
-                    }),
+                    onTap: () =>
+                        _selectDate(context, pollDateController, (date) {
+                          setState(() => pollDate = date);
+                        }),
                   ),
 
                   const SizedBox(height: 12),
@@ -611,9 +1074,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   _buildDateField(
                     controller: countingDateController,
                     label: 'Counting Date',
-                    onTap: () => _selectDate(context, countingDateController, (date) {
-                      setState(() => countingDate = date);
-                    }),
+                    onTap: () =>
+                        _selectDate(context, countingDateController, (date) {
+                          setState(() => countingDate = date);
+                        }),
                   ),
 
                   const SizedBox(height: 12),
@@ -622,9 +1086,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   _buildDateField(
                     controller: resultDateController,
                     label: 'Result Date',
-                    onTap: () => _selectDate(context, resultDateController, (date) {
-                      setState(() => resultDate = date);
-                    }),
+                    onTap: () =>
+                        _selectDate(context, resultDateController, (date) {
+                          setState(() => resultDate = date);
+                        }),
                   ),
 
                   const SizedBox(height: 32),
@@ -663,7 +1128,8 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   _buildTextAreaField(
                     controller: remarksController,
                     label: 'Remarks & Notes',
-                    hint: 'Enter any additional information or special conditions',
+                    hint:
+                        'Enter any additional information or special conditions',
                   ),
 
                   const SizedBox(height: 32),
@@ -696,7 +1162,11 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                              Icon(
+                                Icons.check_circle_outline,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               SizedBox(width: 10),
                               Text(
                                 widget.election == null
@@ -741,7 +1211,10 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                         });
                       },
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF1E40AF), width: 2),
+                        side: const BorderSide(
+                          color: Color(0xFF1E40AF),
+                          width: 2,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -826,8 +1299,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
             border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
             borderRadius: BorderRadius.circular(12),
           ),
-          child:
-          DropdownButtonFormField<String>(
+          child: DropdownButtonFormField<String>(
             value: value,
             isDense: true, // ✅ FIX 1: removes extra height
             decoration: const InputDecoration(
@@ -839,24 +1311,23 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
               ),
             ),
             items: items
-                .map((item) => DropdownMenuItem(
-              value: item,
-              child: Text(
-                item,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-            ))
+                .map(
+                  (item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(
+                      item,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                )
                 .toList(),
             onChanged: onChanged,
             hint: Text(
               'Select $label',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF9CA3AF),
-              ),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
             ),
             icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF1E40AF)),
           ),
@@ -897,12 +1368,12 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
               hintText: hint,
               hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
               prefixIcon: Icon(icon, color: const Color(0xFF1E40AF)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1F2937),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
           ),
         ),
       ],
@@ -941,15 +1412,16 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
                   border: InputBorder.none,
                   hintText: 'DD/MM/YYYY',
                   hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
-                  prefixIcon:
-                  Icon(Icons.calendar_today, color: Color(0xFF1E40AF)),
-                  contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  prefixIcon: Icon(
+                    Icons.calendar_today,
+                    color: Color(0xFF1E40AF),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF1F2937),
-                ),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
               ),
             ),
           ),
@@ -989,10 +1461,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
               hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
               contentPadding: const EdgeInsets.all(16),
             ),
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF1F2937),
-            ),
+            style: const TextStyle(fontSize: 14, color: Color(0xFF1F2937)),
           ),
         ),
       ],

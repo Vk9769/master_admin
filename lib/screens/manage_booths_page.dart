@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import 'add_polling_booth_page.dart';
 
 class ManageBoothsPage extends StatefulWidget {
   const ManageBoothsPage({super.key});
@@ -11,652 +8,663 @@ class ManageBoothsPage extends StatefulWidget {
   State<ManageBoothsPage> createState() => _ManageBoothsPageState();
 }
 
-class _ManageBoothsPageState extends State<ManageBoothsPage> {
-
-  final String baseUrl =
-      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
-
-  // -------------------------------
-  // STATE
-  // -------------------------------
-  bool isLoading = false;
+class _ManageBoothsPageState extends State<ManageBoothsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   int selectedElectionId = 0;
-  String filterMode = ''; // AC | WARD
-  String selectedAC = '';
-  int selectedWardId = 0;
+  String search = '';
 
-  List<Map<String, dynamic>> elections = [];
-  List<Map<String, dynamic>> wards = [];
-  List<Map<String, dynamic>> booths = [];
-  List<String> acs = [];
+  // 🎨 Color Palette
+  static const Color primaryColor = Colors.blue;
+  static const Color accentColor = Color(0xFF00BCD4);
+  static const Color successColor = Color(0xFF4CAF50);
+  static const Color errorColor = Color(0xFFE53935);
+  static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color cardColor = Colors.white;
+  static const Color textPrimary = Color(0xFF212121);
+  static const Color textSecondary = Color(0xFF757575);
 
-  Set<int> selectedBoothIds = {};
+  // 🔹 Dummy elections
+  final List<Map<String, dynamic>> elections = [
+    {"id": 1, "name": "Lok Sabha 2024"},
+    {"id": 2, "name": "Municipal Election 2025"},
+  ];
 
-  Future<void> fetchElections() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    if (token == null) return;
+  // 🔹 Dummy booths (ALL)
+  final List<Map<String, dynamic>> allBooths = [
+    {"id": 1, "name": "ZP School Booth", "ward": "Ward 3", "ac": "AC 216"},
+    {"id": 2, "name": "Municipal Hall Booth", "ward": "Ward 5", "ac": "AC 216"},
+    {"id": 3, "name": "Primary School Booth", "ward": "Ward 1", "ac": "AC 215"},
+  ];
 
-    final res = await http.get(
-      Uri.parse("$baseUrl/masteradmin/elections"),
-      headers: {"Authorization": "Bearer $token"},
-    );
-
-    if (res.statusCode == 200) {
-      final List list = jsonDecode(res.body);
-      setState(() {
-        elections = list
-            .where((e) => e['status'] != 'past')
-            .map((e) => {
-          "id": e['id'],
-          "name": e['election_name'],
-          "type": e['election_type'],
-        })
-            .toList();
-      });
-    }
-  }
-
-  Future<void> fetchACs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    if (token == null || selectedElectionId == 0) return;
-
-    final res = await http.get(
-      Uri.parse(
-        "$baseUrl/api/booths/acs-for-election?election_id=$selectedElectionId",
-      ),
-      headers: {"Authorization": "Bearer $token"},
-    );
-
-    if (res.statusCode == 200) {
-      setState(() {
-        acs = List<String>.from(jsonDecode(res.body));
-      });
-    }
-  }
-
-  Future<void> fetchWards() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    if (token == null || selectedElectionId == 0) return;
-
-    final res = await http.get(
-      Uri.parse("$baseUrl/api/wards?election_id=$selectedElectionId"),
-      headers: {"Authorization": "Bearer $token"},
-    );
-
-    if (res.statusCode == 200) {
-      setState(() {
-        wards = List<Map<String, dynamic>>.from(jsonDecode(res.body));
-      });
-    }
-  }
-
-  // -------------------------------
-  // FETCH BOOTHS
-  // -------------------------------
-  Future<void> fetchBooths() async {
-    if (selectedElectionId == 0) return;
-
-    setState(() => isLoading = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    if (token == null) return;
-
-    String url =
-        "$baseUrl/api/booths/for-election?election_id=$selectedElectionId";
-
-    if (filterMode == 'AC' && selectedAC.isNotEmpty) {
-      url += "&ac_name_no=$selectedAC";
-    }
-
-    if (filterMode == 'WARD' && selectedWardId != 0) {
-      url += "&ward_id=$selectedWardId";
-    }
-
-    final res = await http.get(
-      Uri.parse(url),
-      headers: {"Authorization": "Bearer $token"},
-    );
-
-    if (res.statusCode == 200) {
-      setState(() {
-        booths = List<Map<String, dynamic>>.from(jsonDecode(res.body));
-      });
-    }
-
-    setState(() => isLoading = false);
-  }
-
-  // -------------------------------
-  // ALLOCATE BOOTHS
-  // -------------------------------
-  Future<void> allocateBooths() async {
-    if (selectedBoothIds.isEmpty || selectedElectionId == 0) return;
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    if (token == null) return;
-
-    final res = await http.post(
-      Uri.parse("$baseUrl/api/election-booths/allocate"),
-      headers: {
-        "Authorization": "Bearer $token",
-        "Content-Type": "application/json",
-      },
-      body: jsonEncode({
-        "election_id": selectedElectionId,
-        "booth_ids": selectedBoothIds.toList(),
-      }),
-    );
-
-    if (res.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Booths allocated successfully")),
-      );
-      setState(() => selectedBoothIds.clear());
-      fetchBooths(); // refresh
-    }
-  }
-
+  // 🔹 Dummy election-wise booth mapping
+  final Map<int, List<int>> electionBooths = {
+    1: [1, 2], // Election 1 has booth 1 & 2
+    2: [3], // Election 2 has booth 3
+  };
 
   @override
   void initState() {
     super.initState();
-    fetchElections();
-  }
+    _tabController = TabController(length: 2, vsync: this);
 
-  List<String> get uniqueACs {
-    final set = <String>{};
-    for (final b in booths) {
-      if (b['ac_name_no'] != null && b['ac_name_no'].toString().isNotEmpty) {
-        set.add(b['ac_name_no']);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {
+          search = '';
+        });
       }
-    }
-    return set.toList();
+    });
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
-  // -------------------------------
-  // UI
-  // -------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
+        elevation: 0,
         title: const Text(
           'Manage Booths',
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
             fontWeight: FontWeight.bold,
+            fontSize: 24,
+            color: Colors.white,
+            letterSpacing: 0.5,
           ),
         ),
-        backgroundColor: const Color(0xFF1E88E5),
-        iconTheme: const IconThemeData(color: Colors.white),
-        elevation: 2,
+        backgroundColor: primaryColor,
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: accentColor,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          labelStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+          tabs: const [
+            Tab(text: 'By Election'),
+            Tab(text: 'All Booths'),
+          ],
+        ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.blue.shade50, Colors.white],
-          ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        icon: const Icon(Icons.add_location_outlined, size: 24),
+        label: const Text(
+          'Add Booth',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddPollingBoothPage()),
+          );
+        },
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [_buildElectionBoothsTab(), _buildAllBoothsTab()],
+      ),
+    );
+  }
+
+  // ================= TAB 1: MANAGE ELECTION BOOTHS =================
+  Widget _buildElectionBoothsTab() {
+    final List<Map<String, dynamic>> booths = selectedElectionId == 0
+        ? <Map<String, dynamic>>[]
+        : allBooths
+              .where(
+                (b) =>
+                    (electionBooths[selectedElectionId]?.contains(b['id']) ??
+                        false) &&
+                    b['name'].toString().toLowerCase().contains(search),
+              )
+              .toList();
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          // 🔽 Election dropdown
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ========== SECTION 1: FILTER CONTROLS ==========
-                _buildSectionTitle('📋 Election & Location Filters'),
-                const SizedBox(height: 16),
-
-                _electionDropdown(),
-
-                if (selectedElectionId != 0)
-                  buildDropdown<String>(
-                    label: 'Filter By',
-                    value: filterMode.isEmpty ? null : filterMode,
-                    items: const [
-                      DropdownMenuItem(value: 'AC', child: Text('AC Wise')),
-                      DropdownMenuItem(value: 'WARD', child: Text('Ward Wise')),
-                    ],
-                    onChanged: (v) {
-                      setState(() {
-                        filterMode = v ?? '';
-                        selectedAC = '';
-                        selectedWardId = 0;
-                        booths.clear();
-                        selectedBoothIds.clear();
-                      });
-                    },
-                  ),
-
-
-                if (filterMode == 'AC')
-                  buildDropdown<String>(
-                    label: 'Assembly Constituency',
-                    value: selectedAC.isEmpty ? null : selectedAC,
-                    items: acs
-                        .map(
-                          (ac) => DropdownMenuItem<String>(
-                        value: ac,
-                        child: Text(ac),
-                      ),
-                    )
-                        .toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        selectedAC = v ?? '';
-                      });
-                      fetchBooths();
-                    },
-                  ),
-
-
-                if (filterMode == 'WARD')
-                  buildDropdown<int>(
-                    label: 'Ward',
-                    value: selectedWardId == 0 ? null : selectedWardId,
-                    items: wards.map((w) {
-                      return DropdownMenuItem<int>(
-                        value: w['id'],
-                        child: Text("${w['ward_no']} - ${w['ward_name']}"),
-                      );
-                    }).toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        selectedWardId = v ?? 0;
-                      });
-                      fetchBooths();
-                    },
-                  ),
-
-
-                const SizedBox(height: 24),
-
-                // ========== SECTION 2: BULK SELECTION CONTROLS ==========
-                _buildSectionTitle('✅ Bulk Selection Options'),
-                const SizedBox(height: 12),
-
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(12),
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _buildActionButton(
-                        'Select All',
-                        Icons.check_circle_outline,
-                        booths.isEmpty ? null : _selectAllVisible,
-                        const Color(0xFF4CAF50),
-                      ),
-                      _buildActionButton(
-                        'AC Wise',
-                        Icons.domain_outlined,
-                        filterMode == 'AC' && selectedAC.isNotEmpty
-                            ? _selectACWise
-                            : null,
-                        const Color(0xFFF57C00),
-                      ),
-                      _buildActionButton(
-                        'Ward Wise',
-                        Icons.location_on_outlined,
-                        filterMode == 'WARD' && selectedWardId != 0
-                            ? _selectWardWise
-                            : null,
-                        const Color(0xFF7B1FA2),
-                      ),
-                      _buildActionButton(
-                        'Clear All',
-                        Icons.clear,
-                        selectedBoothIds.isEmpty ? null : _clearSelection,
-                        const Color(0xFFD32F2F),
-                      ),
-                    ],
+                const Text(
+                  'Select Election',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                    letterSpacing: 0.3,
                   ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // ========== SECTION 3: BOOTHS LIST ==========
-                _buildSectionTitle('🏛️ Available Booths'),
-                const SizedBox(height: 12),
-
+                const SizedBox(height: 10),
                 Container(
                   decoration: BoxDecoration(
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withOpacity(0.04),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.35,
+                  child: DropdownButtonFormField<int>(
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
                       ),
-                      color: Colors.white,
-                      child:
-                      (filterMode.isEmpty ||
-                          (filterMode == 'AC' && selectedAC.isEmpty) ||
-                          (filterMode == 'WARD' && selectedWardId == 0))
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                      prefixIcon: const Icon(
+                        Icons.ballot_outlined,
+                        color: primaryColor,
+                        size: 22,
+                      ),
+                    ),
+                    value: selectedElectionId == 0 ? null : selectedElectionId,
+                    hint: const Text(
+                      'Choose an election',
+                      style: TextStyle(color: textSecondary),
+                    ),
+                    items: elections
+                        .map(
+                          (e) => DropdownMenuItem<int>(
+                            value: e['id'],
+                            child: Text(
+                              e['name'],
+                              style: const TextStyle(
+                                color: textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedElectionId = value ?? 0;
+                        search = '';
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 🔍 Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search booth name',
+                hintStyle: const TextStyle(color: textSecondary),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: primaryColor,
+                  size: 22,
+                ),
+                filled: true,
+                fillColor: cardColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onChanged: (v) {
+                setState(() {
+                  search = v.toLowerCase();
+                });
+              },
+            ),
+          ),
+
+          // 📋 List or empty state
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 380,
+            child: selectedElectionId == 0
+                ? _buildEmptyState(
+                    icon: Icons.ballot_outlined,
+                    title: 'Select an Election',
+                    subtitle: 'Choose an election to view its polling booths',
+                  )
+                : booths.isEmpty
+                ? _buildEmptyState(
+                    icon: Icons.location_off_outlined,
+                    title: 'No Booths Found',
+                    subtitle: 'No polling booths match your search',
+                  )
+                : _buildBoothList(booths),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= TAB 2: MANAGE ALL BOOTHS =================
+  Widget _buildAllBoothsTab() {
+    final filteredBooths = allBooths
+        .where((b) => b['name'].toString().toLowerCase().contains(search))
+        .toList();
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: Column(
+        children: [
+          // 🔍 Search
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search by booth name',
+                hintStyle: const TextStyle(color: textSecondary),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: primaryColor,
+                  size: 22,
+                ),
+                filled: true,
+                fillColor: cardColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.shade200),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: primaryColor, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onChanged: (v) {
+                setState(() {
+                  search = v.toLowerCase();
+                });
+              },
+            ),
+          ),
+
+          // 📋 List or empty state
+          SizedBox(
+            height: MediaQuery.of(context).size.height - 280,
+            child: filteredBooths.isEmpty && search.isNotEmpty
+                ? _buildEmptyState(
+                    icon: Icons.search_off_outlined,
+                    title: 'No Results Found',
+                    subtitle: 'Try adjusting your search terms',
+                  )
+                : filteredBooths.isEmpty
+                ? _buildEmptyState(
+                    icon: Icons.location_disabled_outlined,
+                    title: 'No Booths Available',
+                    subtitle: 'Add a booth to get started',
+                  )
+                : _buildBoothList(filteredBooths),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================= COMMON BOOTH LIST =================
+  Widget _buildBoothList(List<Map<String, dynamic>> booths) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      itemCount: booths.length,
+      itemBuilder: (context, index) {
+        final booth = booths[index];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade100),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () {
+                  // Handle tap
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.location_on_outlined,
+                              color: primaryColor,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  booth['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                    color: textPrimary,
+                                    letterSpacing: 0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Booth ID: ${booth['id']}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(
+                              Icons.more_vert_rounded,
+                              color: textSecondary,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'delete') {
+                                _confirmDelete(booth['id']);
+                              } else if (value == 'edit') {
+                                // Handle edit
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
                                   children: [
                                     Icon(
-                                      Icons.info_outline,
-                                      size: 48,
-                                      color: Colors.grey.shade400,
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                      color: primaryColor,
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Please select AC or Ward to view booths',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 16,
-                                        height: 1.5,
-                                      ),
+                                    SizedBox(width: 8),
+                                    Text('Edit'),
+                                  ],
+                                ),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: errorColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'Delete',
+                                      style: TextStyle(color: errorColor),
                                     ),
                                   ],
                                 ),
                               ),
-                            )
-                          : isLoading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF1E88E5),
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(8),
-                              itemCount: booths.length,
-                              itemBuilder: (context, index) {
-                                final booth = booths[index];
-                                final id = booth['id'];
-                                final isSelected = selectedBoothIds.contains(
-                                  id,
-                                );
-
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                    horizontal: 0,
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () {
-                                        setState(() {
-                                          isSelected
-                                              ? selectedBoothIds.remove(id)
-                                              : selectedBoothIds.add(id);
-                                        });
-                                      },
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? Colors.blue.shade50
-                                              : Colors.white,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? const Color(0xFF1E88E5)
-                                                : Colors.grey.shade200,
-                                            width: isSelected ? 2 : 1,
-                                          ),
-                                        ),
-                                        child: CheckboxListTile(
-                                          activeColor: const Color(0xFF1E88E5),
-                                          checkColor: Colors.white,
-                                          title: Text(
-                                            booth['name'],
-                                            style: TextStyle(
-                                              fontSize: 15,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.w600
-                                                  : FontWeight.w500,
-                                              color: isSelected
-                                                  ? const Color(0xFF1E88E5)
-                                                  : Colors.black87,
-                                            ),
-                                          ),
-                                          value: isSelected,
-                                          onChanged: (checked) {
-                                            setState(() {
-                                              checked!
-                                                  ? selectedBoothIds.add(id)
-                                                  : selectedBoothIds.remove(id);
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ========== SECTION 4: ALLOCATION BUTTON ==========
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: selectedBoothIds.isEmpty ? null : allocateBooths,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E88E5),
-                      disabledBackgroundColor: Colors.grey.shade300,
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check, color: Colors.white, size: 22),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Allocate ${selectedBoothIds.length > 0 ? '(${selectedBoothIds.length})' : ''} Booths',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            letterSpacing: 0.5,
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildBoothInfo(
+                              icon: Icons.map_outlined,
+                              label: booth['ward'],
+                              color: accentColor,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildBoothInfo(
+                              icon: Icons.domain_outlined,
+                              label: booth['ac'],
+                              color: successColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ========== HELPER: SECTION TITLE ==========
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Color(0xFF1E3A8A),
-        letterSpacing: 0.3,
-      ),
-    );
-  }
-
-  // ========== HELPER: ACTION BUTTON ==========
-  Widget _buildActionButton(
-    String label,
-    IconData icon,
-    VoidCallback? onPressed,
-    Color color,
-  ) {
-    return SizedBox(
-      height: 40,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: onPressed != null ? color : Colors.grey.shade300,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          elevation: onPressed != null ? 2 : 0,
-        ),
-      ),
-    );
-  }
-
-  Widget _electionDropdown() {
-    return DropdownButtonFormField<int>(
-      decoration: const InputDecoration(
-        labelText: 'Select Election',
-      ),
-      value: selectedElectionId == 0 ? null : selectedElectionId,
-      items: elections.map((e) {
-        return DropdownMenuItem<int>(
-          value: e['id'],
-          child: Text(e['name']),
         );
-      }).toList(),
-      onChanged: (value) {
-        setState(() {
-          selectedElectionId = value ?? 0;
-          filterMode = '';
-          selectedAC = '';
-          selectedWardId = 0;
-          booths.clear();
-          selectedBoothIds.clear();
-          acs.clear();
-        });
-
-        fetchWards(); // municipal
-        fetchACs();   // assembly
       },
     );
   }
 
-
-  void _selectAllVisible() {
-    setState(() {
-      selectedBoothIds = booths.map<int>((b) => b['id'] as int).toSet();
-    });
-  }
-
-  void _clearSelection() {
-    setState(() {
-      selectedBoothIds.clear();
-    });
-  }
-
-
-  void _selectACWise() {
-    if (selectedAC.isEmpty) return;
-    _selectAllVisible();
-  }
-
-  void _selectWardWise() {
-    if (selectedWardId == 0) return;
-    _selectAllVisible();
-  }
-
-  // ========== HELPER: REUSABLE DROPDOWN ==========
-  // ========== HELPER: UNIVERSAL DROPDOWN ==========
-  Widget buildDropdown<T>({
+  // ================= BOOTH INFO CHIP =================
+  Widget _buildBoothInfo({
+    required IconData icon,
     required String label,
-    required T? value,
-    required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
-    bool isExpanded = true,
+    required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<T>(
-        value: value,
-        isExpanded: isExpanded,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(
-            color: Color(0xFF1E88E5),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(
-              color: Color(0xFF1E88E5),
-              width: 2,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          prefixIcon: const Icon(
-            Icons.filter_list_rounded,
-            color: Color(0xFF1E88E5),
-            size: 20,
+        ],
+      ),
+    );
+  }
+
+  // ================= EMPTY STATE =================
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 60),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(50),
+              ),
+              child: Icon(icon, size: 56, color: primaryColor),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: textPrimary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 14,
+                color: textSecondary,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================= DELETE CONFIRM =================
+  void _confirmDelete(int boothId) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: errorColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: errorColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Delete Booth',
+              style: TextStyle(fontWeight: FontWeight.w700, color: textPrimary),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                fontSize: 14,
+                color: textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Are you sure you want to delete this polling booth? All associated data will be removed permanently.',
+              style: TextStyle(fontSize: 13, color: textSecondary, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-        items: items,
-        onChanged: onChanged,
-        icon: const Icon(
-          Icons.arrow_drop_down_rounded,
-          color: Color(0xFF1E88E5),
-          size: 24,
-        ),
-        dropdownColor: Colors.white,
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: errorColor,
+              foregroundColor: Colors.white,
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                allBooths.removeWhere((b) => b['id'] == boothId);
+              });
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Booth deleted successfully'),
+                  backgroundColor: successColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  margin: const EdgeInsets.all(16),
+                ),
+              );
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }

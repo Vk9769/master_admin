@@ -12,6 +12,7 @@ import 'add_admin_page.dart';
 import 'add_super_agent_page.dart';
 import 'add_ward_page.dart';
 import 'manage_booths_page.dart';
+import 'allocate_booths.dart';
 
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
@@ -126,28 +127,13 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
                         const SizedBox(height: 16),
 
-                        // Existing row shifted DOWN
+                        _buildSubSectionTitle('Booths & Ward Management'),
+
+                        const SizedBox(height: 16),
+
                         // Existing row shifted DOWN
                         Row(
                           children: [
-                            Expanded(
-                              child: _buildActionCard(
-                                context,
-                                1,
-                                Icons.how_to_vote,
-                                'View Candidates',
-                                'Manage candidate information',
-                                Colors.blue,
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AdminCandidatesPage(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-
                             Expanded(
                               child: _buildActionCard(
                                 context,
@@ -189,11 +175,30 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             Expanded(
                               child: _buildActionCard(
                                 context,
-                                12, // 👈 NEW UNIQUE INDEX (important)
+                                12,
                                 Icons.how_to_vote_outlined,
-                                'Manage Booths',
-                                'Create, update and manage booths',
+                                'Allocate Booths',
+                                'Allocate booths to elections',
                                 Colors.blue,
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AllocateBoothsPage(),
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(width: 16),
+
+                            Expanded(
+                              child: _buildActionCard(
+                                context,
+                                13, // ✅ NEW UNIQUE INDEX
+                                Icons.settings_outlined,
+                                'Manage Booths',
+                                'Create, edit and update booths',
+                                Colors.indigo,
                                 () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -234,6 +239,24 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
                     Row(
                       children: [
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            1, // same index is OK
+                            Icons.how_to_vote,
+                            'View Candidates',
+                            'Manage candidate information',
+                            Colors.blue,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AdminCandidatesPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
                         Expanded(
                           child: _buildActionCard(
                             context,
@@ -383,23 +406,10 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                     ),
 
                     const SizedBox(height: 12),
+                    const SizedBox(height: 16),
 
-                    _buildActionCard(
-                      context,
-                      1,
-                      Icons.how_to_vote,
-                      'View Candidates',
-                      'Manage candidate information',
-                      Colors.blue,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AdminCandidatesPage(),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
+                    _buildSubSectionTitle('Booths & Ward Management'),
+                    const SizedBox(height: 16),
 
                     // ✅ ADD WARD (MOBILE)
                     _buildActionCard(
@@ -437,9 +447,24 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       12,
                       Icons.how_to_vote_outlined,
-                      'Manage Booths',
-                      'Create, update and manage booths',
+                      'Allocate Booths',
+                      'Allocate booths to elections',
                       Colors.blue,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => AllocateBoothsPage()),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      13, // ✅ NEW UNIQUE INDEX
+                      Icons.settings_outlined,
+                      'Manage Booths',
+                      'Create, edit and update booths',
+                      Colors.indigo,
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => ManageBoothsPage()),
@@ -462,6 +487,23 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                     ),
                     const SizedBox(height: 24),
                     _buildSectionHeader('Personnel & Voters'),
+                    const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      1,
+                      Icons.how_to_vote,
+                      'View Candidates',
+                      'Manage candidate information',
+                      Colors.blue,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AdminCandidatesPage(),
+                        ),
+                      ),
+                    ),
+
                     const SizedBox(height: 12),
 
                     _buildActionCard(
@@ -580,6 +622,36 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
         Container(
           width: 40,
+          height: 3,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.blue, Colors.blue.withOpacity(0)],
+            ),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ✅ SUB-SECTION TITLE (for Booths & Ward Management)
+  Widget _buildSubSectionTitle(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16, // slightly smaller than main section
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0B2C5D), // same dark blue
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        Container(
+          width: 28, // smaller underline to indicate sub-section
           height: 3,
           decoration: BoxDecoration(
             gradient: LinearGradient(
