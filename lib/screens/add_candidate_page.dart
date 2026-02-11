@@ -24,6 +24,8 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
 
   final TextEditingController searchVoterController = TextEditingController();
   bool isSearchingVoter = false;
+  final TextEditingController passwordController = TextEditingController();
+  bool obscurePassword = true;
 
   String? selectedGender;
   File? candidatePhoto;
@@ -53,6 +55,7 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
     phoneController.dispose();
     emailController.dispose();
     searchVoterController.dispose(); // ✅ ADD THIS
+    passwordController.dispose();
     super.dispose();
   }
 
@@ -218,6 +221,17 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
       _showError('Please enter email address');
       return false;
     }
+
+    if (passwordController.text.trim().isEmpty) {
+      _showError('Please enter password');
+      return false;
+    }
+
+    if (passwordController.text.length < 6) {
+      _showError('Password must be at least 6 characters');
+      return false;
+    }
+
     if (!RegExp(
       r'^[^@]+@[^@]+\.[^@]+$',
     ).hasMatch(emailController.text.trim())) {
@@ -276,8 +290,8 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
         'aadhaar': aadhaarController.text.trim(),
         'phone': phoneController.text.trim(),
         'email': emailController.text.trim(),
+        'password': passwordController.text.trim(), // ✅ ADD
         'description': descriptionController.text.trim(),
-        // ✅ Only store base64 (no File objects!)
         'image': candidateBase64,
         'symbol': symbolBase64,
         'election': selectedElection,
@@ -667,6 +681,34 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
               icon: Icons.email,
               keyboardType: TextInputType.emailAddress,
             ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: passwordController,
+              obscureText: obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'Password *',
+                prefixIcon: Icon(Icons.lock, color: themeColor),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: themeColor,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      obscurePassword = !obscurePassword;
+                    });
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.blue.shade50,
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // Submit Button
