@@ -100,7 +100,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   Future<void> _fetchLocationHierarchy() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('token');
       if (token == null) return;
 
       final response = await http.get(
@@ -260,7 +260,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('token');
       if (token == null) return;
 
       final response = await http.get(
@@ -361,7 +361,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
     print("🟢 SUBMIT BUTTON CLICKED");
 
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token');
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Session expired. Please login again')),

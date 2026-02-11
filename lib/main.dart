@@ -9,7 +9,7 @@ import 'screens/admin_dashboard.dart';
 
 /// GLOBAL ScaffoldMessenger (useful for Snackbars)
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
-GlobalKey<ScaffoldMessengerState>();
+    GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,20 +65,34 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final token = prefs.getString('auth_token');
-    final role = prefs.getString('user_role'); // expected: admin
+    final token = prefs.getString('token');
+    final role = prefs.getString('user_role');
+    final loginTime = prefs.getInt('login_time');
 
-    // ✅ Slightly longer delay for Web
+    // 24 hours in milliseconds
+    const sessionDuration = 24 * 60 * 60 * 1000;
+
     final delay = kIsWeb ? 1500 : 1200;
 
-    Timer(Duration(milliseconds: delay), () {
+    Timer(Duration(milliseconds: delay), () async {
       if (!mounted) return;
 
-      if (token != null && token.isNotEmpty && role == "admin") {
-        _navigateTo(const AdminDashboard());
-      } else {
-        _navigateTo(const WelcomePage());
+      if (token != null &&
+          token.isNotEmpty &&
+          role == "MASTER_ADMIN" &&
+          loginTime != null) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final diff = now - loginTime;
+
+        if (diff <= sessionDuration) {
+          _navigateTo(const AdminDashboard());
+          return;
+        }
       }
+
+      // ❌ Session expired or invalid
+      await prefs.clear();
+      _navigateTo(const WelcomePage());
     });
   }
 
@@ -105,17 +119,11 @@ class _SplashScreenState extends State<SplashScreen> {
     final size = MediaQuery.of(context).size;
 
     // ✅ Responsive sizes
-    final logoSize = kIsWeb
-        ? size.width.clamp(170, 250)
-        : size.width * 0.28;
+    final logoSize = kIsWeb ? size.width.clamp(170, 250) : size.width * 0.28;
 
-    final titleSize = kIsWeb
-        ? size.width.clamp(28, 44)
-        : size.width * 0.075;
+    final titleSize = kIsWeb ? size.width.clamp(28, 44) : size.width * 0.075;
 
-    final subtitleSize = kIsWeb
-        ? size.width.clamp(14, 18)
-        : size.width * 0.04;
+    final subtitleSize = kIsWeb ? size.width.clamp(14, 18) : size.width * 0.04;
 
     return Scaffold(
       body: Stack(
@@ -125,10 +133,7 @@ class _SplashScreenState extends State<SplashScreen> {
           Stack(
             fit: StackFit.expand,
             children: [
-              Image.asset(
-                'assets/india_bg.png',
-                fit: BoxFit.cover,
-              ),
+              Image.asset('assets/india_bg.png', fit: BoxFit.cover),
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(

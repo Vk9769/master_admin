@@ -34,7 +34,7 @@ class _AllocateBoothsPageState extends State<AllocateBoothsPage> {
 
   Future<void> fetchElections() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
     if (token == null) return;
 
     final res = await http.get(
@@ -61,7 +61,7 @@ class _AllocateBoothsPageState extends State<AllocateBoothsPage> {
 
   Future<void> fetchACs() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
     if (token == null || selectedElectionId == 0) return;
 
     final res = await http.get(
@@ -80,7 +80,7 @@ class _AllocateBoothsPageState extends State<AllocateBoothsPage> {
 
   Future<void> fetchWards() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
     if (token == null || selectedElectionId == 0) return;
 
     final res = await http.get(
@@ -104,7 +104,7 @@ class _AllocateBoothsPageState extends State<AllocateBoothsPage> {
     setState(() => isLoading = true);
 
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
     if (token == null) return;
 
     String url =
@@ -139,7 +139,7 @@ class _AllocateBoothsPageState extends State<AllocateBoothsPage> {
     if (selectedBoothIds.isEmpty || selectedElectionId == 0) return;
 
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
     if (token == null) return;
 
     final res = await http.post(

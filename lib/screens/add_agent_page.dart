@@ -110,7 +110,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
   Future<void> _fetchLocationHierarchy() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('token');
       if (token == null) return;
 
       final response = await http.get(
@@ -225,7 +225,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
   Future<void> _fetchElections() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token');
     if (token == null) return;
 
     final res = await http.get(
@@ -297,7 +297,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token');
+      final token = prefs.getString('token');
       if (token == null) return;
 
       final response = await http.get(
@@ -423,7 +423,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
     print("🟢 SUBMIT BUTTON CLICKED");
 
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final token = prefs.getString('token');
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Session expired. Please login again')),

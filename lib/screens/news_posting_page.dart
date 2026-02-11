@@ -34,16 +34,17 @@ class _NewsPostingPageState extends State<NewsPostingPage>
     'Breaking News',
     'Updates',
     'Announcements',
-    'Alerts'
+    'Alerts',
   ];
 
   List<NewsPost> publishedNews = [
     NewsPost(
       id: '1',
       title: 'Election Results Announced',
-      content: 'Final results for the parliamentary elections have been announced...',
+      content:
+          'Final results for the parliamentary elections have been announced...',
       images: [
-        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=500'
+        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=500',
       ],
       category: 'Election News',
       likes: 1250,
@@ -59,7 +60,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
       title: 'Voting Booth Guidelines Updated',
       content: 'New safety guidelines for voting booths have been released...',
       images: [
-        'https://images.unsplash.com/photo-1552664730-d307ca884978?w=500'
+        'https://images.unsplash.com/photo-1552664730-d307ca884978?w=500',
       ],
       category: 'Updates',
       likes: 890,
@@ -161,8 +162,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
             children: [
               Padding(
                 padding: EdgeInsets.only(left: 7, right: 20),
-                child:
-                Row(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
@@ -199,7 +199,10 @@ class _NewsPostingPageState extends State<NewsPostingPage>
                     ),
 
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white10,
                         borderRadius: BorderRadius.circular(20),
@@ -262,19 +265,13 @@ class _NewsPostingPageState extends State<NewsPostingPage>
       padding: EdgeInsets.all(24),
       child: isDesktop
           ? Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: _buildNewsFormContent(),
-          ),
-          SizedBox(width: 24),
-          Expanded(
-            flex: 1,
-            child: _buildNewsPreview(),
-          ),
-        ],
-      )
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 2, child: _buildNewsFormContent()),
+                SizedBox(width: 24),
+                Expanded(flex: 1, child: _buildNewsPreview()),
+              ],
+            )
           : _buildNewsFormContent(),
     );
   }
@@ -357,7 +354,10 @@ class _NewsPostingPageState extends State<NewsPostingPage>
           width: double.infinity,
           padding: EdgeInsets.all(20),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+            border: Border.all(
+              color: Colors.grey[300]!,
+              style: BorderStyle.solid,
+            ),
             borderRadius: BorderRadius.circular(12),
             color: Colors.grey[50],
           ),
@@ -690,11 +690,10 @@ class _NewsPostingPageState extends State<NewsPostingPage>
 
           SizedBox(height: 12),
           Text(
-            _titleController.text.isEmpty ? 'Your title here' : _titleController.text,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            _titleController.text.isEmpty
+                ? 'Your title here'
+                : _titleController.text,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -711,10 +710,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
           Row(
             children: [
               Chip(
-                label: Text(
-                  selectedCategory,
-                  style: TextStyle(fontSize: 10),
-                ),
+                label: Text(selectedCategory, style: TextStyle(fontSize: 10)),
                 backgroundColor: Color(0xFF0066CC).withOpacity(0.1),
                 labelStyle: TextStyle(color: Color(0xFF0066CC)),
               ),
@@ -757,10 +753,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
           ),
         ),
         SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-        ),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
       ],
     );
   }
@@ -853,12 +846,10 @@ class _NewsPostingPageState extends State<NewsPostingPage>
 
                   // DATE
                   Text(
-                    DateFormat('dd MMM yyyy, hh:mm a')
-                        .format(draft.publishedDate),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                    ),
+                    DateFormat(
+                      'dd MMM yyyy, hh:mm a',
+                    ).format(draft.publishedDate),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -870,8 +861,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
             // ✅ BUTTONS STICK TO BOTTOM
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child:
-              Row(
+              child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
@@ -896,7 +886,10 @@ class _NewsPostingPageState extends State<NewsPostingPage>
                   Expanded(
                     child: ElevatedButton.icon(
                       icon: const Icon(Icons.publish, color: Colors.white),
-                      label: const Text('Publish', style: TextStyle(color: Colors.white)),
+                      label: const Text(
+                        'Publish',
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0066CC),
                       ),
@@ -926,10 +919,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
         children: [
           Text(
             'Published News',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16),
           ListView.builder(
@@ -954,53 +944,53 @@ class _NewsPostingPageState extends State<NewsPostingPage>
       ),
       child: isDesktop
           ? Row(
-        children: [
-          // IMAGE (LEFT SIDE – DESKTOP)
-          Container(
-            width: 200,
-            height: 200,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                bottomLeft: Radius.circular(12),
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildPublishedImage(news),
-          ),
+              children: [
+                // IMAGE (LEFT SIDE – DESKTOP)
+                Container(
+                  width: 200,
+                  height: 200,
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      bottomLeft: Radius.circular(12),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildPublishedImage(news),
+                ),
 
-          // CONTENT
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: _buildNewsCardContent(news),
-            ),
-          ),
-        ],
-      )
+                // CONTENT
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildNewsCardContent(news),
+                  ),
+                ),
+              ],
+            )
           : Column(
-        children: [
-          // IMAGE (TOP – MOBILE)
-          Container(
-            width: double.infinity,
-            height: 200,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildPublishedImage(news),
-          ),
+              children: [
+                // IMAGE (TOP – MOBILE)
+                Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _buildPublishedImage(news),
+                ),
 
-          // CONTENT
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: _buildNewsCardContent(news),
-          ),
-        ],
-      ),
+                // CONTENT
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildNewsCardContent(news),
+                ),
+              ],
+            ),
     );
   }
 
@@ -1034,20 +1024,14 @@ class _NewsPostingPageState extends State<NewsPostingPage>
         SizedBox(height: 8),
         Text(
           news.title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         SizedBox(height: 8),
         Text(
           news.content,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 13, color: Colors.grey[700]),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1070,7 +1054,11 @@ class _NewsPostingPageState extends State<NewsPostingPage>
           children: [
             _buildEngagementMetric(Icons.visibility, '${news.views}', 'Views'),
             _buildEngagementMetric(Icons.favorite, '${news.likes}', 'Likes'),
-            _buildEngagementMetric(Icons.comment, '${news.comments}', 'Comments'),
+            _buildEngagementMetric(
+              Icons.comment,
+              '${news.comments}',
+              'Comments',
+            ),
             _buildEngagementMetric(Icons.share, '${news.shares}', 'Shares'),
           ],
         ),
@@ -1083,7 +1071,9 @@ class _NewsPostingPageState extends State<NewsPostingPage>
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete News'),
-        content: const Text('Are you sure you want to delete this published news?'),
+        content: const Text(
+          'Are you sure you want to delete this published news?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1103,7 +1093,6 @@ class _NewsPostingPageState extends State<NewsPostingPage>
     );
   }
 
-
   Widget _buildEngagementMetric(IconData icon, String count, String label) {
     return Column(
       children: [
@@ -1118,10 +1107,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
           ),
         ),
         SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-        ),
+        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[600])),
       ],
     );
   }
@@ -1182,7 +1168,6 @@ class _NewsPostingPageState extends State<NewsPostingPage>
         _isEditing = false;
         _editingPost = null;
       }
-
       // ➕ NEW DRAFT
       else {
         draftNews.insert(
@@ -1286,7 +1271,6 @@ class _NewsPostingPageState extends State<NewsPostingPage>
                     _isEditing = false;
                     _editingPost = null;
                   }
-
                   // ➕ NEW PUBLISH
                   else {
                     publishedNews.insert(
@@ -1335,9 +1319,7 @@ class _NewsPostingPageState extends State<NewsPostingPage>
 
   Future<void> _pickImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage(
-        imageQuality: 80,
-      );
+      final List<XFile> images = await _picker.pickMultiImage(imageQuality: 80);
 
       if (images.isNotEmpty) {
         setState(() {
@@ -1345,9 +1327,9 @@ class _NewsPostingPageState extends State<NewsPostingPage>
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to pick images')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to pick images')));
     }
   }
 
@@ -1433,8 +1415,5 @@ Widget _buildPublishedImage(NewsPost news) {
   }
 
   // 🔹 FALLBACK
-  return const Center(
-    child: Icon(Icons.image, size: 40, color: Colors.grey),
-  );
+  return const Center(child: Icon(Icons.image, size: 40, color: Colors.grey));
 }
-

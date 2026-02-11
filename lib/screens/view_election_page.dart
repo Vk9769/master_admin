@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 class ViewElectionsPage extends StatefulWidget {
   const ViewElectionsPage({super.key});
 
@@ -16,7 +15,6 @@ class ViewElectionsPage extends StatefulWidget {
 
 class _ViewElectionsPageState extends State<ViewElectionsPage>
     with SingleTickerProviderStateMixin {
-
   final String baseUrl =
       "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
 
@@ -29,15 +27,13 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
   Future<void> _fetchElections() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString("auth_token");
+      final token = prefs.getString("token");
 
       if (token == null) return;
 
       final response = await http.get(
         Uri.parse("$baseUrl/masteradmin/elections"),
-        headers: {
-          "Authorization": "Bearer $token",
-        },
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
@@ -57,19 +53,16 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
     }
   }
 
-
   Future<void> _deleteElection(Election election) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString("auth_token");
+      final token = prefs.getString("token");
 
       if (token == null) return;
 
       final response = await http.delete(
         Uri.parse("$baseUrl/masteradmin/elections/${election.id}"),
-        headers: {
-          "Authorization": "Bearer $token",
-        },
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
@@ -94,9 +87,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   @override
@@ -105,7 +98,6 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
     _tabController = TabController(length: 4, vsync: this);
     _fetchElections();
   }
-
 
   @override
   void dispose() {
@@ -155,13 +147,10 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final filteredElections = _getFilteredElections();
-
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -237,12 +226,16 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Transform.translate(
-                                      offset: const Offset(0, -14), // move slightly LOWER
+                                      offset: const Offset(
+                                        0,
+                                        -14,
+                                      ), // move slightly LOWER
                                       child: const Text(
                                         'Democracy in Action',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: Colors.black, // changed to BLACK
+                                          color:
+                                              Colors.black, // changed to BLACK
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -259,7 +252,10 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                 ),
               ),
               title: Transform.translate(
-                offset: const Offset(4, 4), // move up by 10px (adjust as needed)
+                offset: const Offset(
+                  4,
+                  4,
+                ), // move up by 10px (adjust as needed)
                 child: const Text(
                   'Indian Elections',
                   style: TextStyle(
@@ -344,55 +340,47 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: filteredElections.isEmpty
                 ? SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Column(
-                    children: [
-                      Text(
-                        '🔍',
-                        style: TextStyle(fontSize: 64),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No elections found',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.grey[700],
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          children: [
+                            Text('🔍', style: TextStyle(fontSize: 64)),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No elections found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Try changing your filter',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Try changing your filter',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
+                    ),
+                  )
                 : SliverList(
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final election = filteredElections[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _buildElectionCard(election),
-                  );
-                },
-                childCount: filteredElections.length,
-              ),
-            ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final election = filteredElections[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: _buildElectionCard(election),
+                      );
+                    }, childCount: filteredElections.length),
+                  ),
           ),
 
           // Bottom Padding
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 20),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
     );
@@ -432,7 +420,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.white.withOpacity(0.2) : Colors.grey[300],
+                color: isSelected
+                    ? Colors.white.withOpacity(0.2)
+                    : Colors.grey[300],
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -450,7 +440,12 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
     );
   }
 
-  Widget _buildStatCard(String value, String label, Color color, IconData icon) {
+  Widget _buildStatCard(
+    String value,
+    String label,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -560,7 +555,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                                   children: [
                                     if (election.status == 'ongoing')
                                       Padding(
-                                        padding: const EdgeInsets.only(right: 4),
+                                        padding: const EdgeInsets.only(
+                                          right: 4,
+                                        ),
                                         child: Container(
                                           width: 6,
                                           height: 6,
@@ -692,11 +689,7 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                           ],
                         ),
                       ),
-                      Container(
-                        width: 1,
-                        height: 30,
-                        color: Colors.grey[300],
-                      ),
+                      Container(width: 1, height: 30, color: Colors.grey[300]),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -711,7 +704,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              dateFormat.format(election.resultDate ?? election.pollDate),
+                              dateFormat.format(
+                                election.resultDate ?? election.pollDate,
+                              ),
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -802,8 +797,12 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: [
-                                _getStatusColor(election.status).withOpacity(0.2),
-                                _getStatusColor(election.status).withOpacity(0.1),
+                                _getStatusColor(
+                                  election.status,
+                                ).withOpacity(0.2),
+                                _getStatusColor(
+                                  election.status,
+                                ).withOpacity(0.1),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(20),
@@ -826,8 +825,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                                   vertical: 5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _getStatusColor(election.status)
-                                      .withOpacity(0.1),
+                                  color: _getStatusColor(
+                                    election.status,
+                                  ).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -863,20 +863,30 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _buildDetailRow(
-                      Icons.location_on,
-                      'State',
-                      election.state,
-                    ),
+                    _buildDetailRow(Icons.location_on, 'State', election.state),
                     _buildDetailRow(Icons.map, 'District', election.district),
-                    _buildDetailRow(Icons.category, 'Category', election.category),
-                    _buildDetailRow(Icons.list_alt, 'Sub-Type', election.subType),
-                    _buildDetailRow(Icons.confirmation_number, 'Election Code', election.electionCode),
+                    _buildDetailRow(
+                      Icons.category,
+                      'Category',
+                      election.category,
+                    ),
+                    _buildDetailRow(
+                      Icons.list_alt,
+                      'Sub-Type',
+                      election.subType,
+                    ),
+                    _buildDetailRow(
+                      Icons.confirmation_number,
+                      'Election Code',
+                      election.electionCode,
+                    ),
 
                     _buildDetailRow(
                       Icons.notifications,
                       'Notification Date',
-                      DateFormat('dd MMM yyyy').format(election.notificationDate),
+                      DateFormat(
+                        'dd MMM yyyy',
+                      ).format(election.notificationDate),
                     ),
 
                     _buildDetailRow(
@@ -889,7 +899,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                       _buildDetailRow(
                         Icons.bar_chart,
                         'Counting Date',
-                        DateFormat('dd MMM yyyy').format(election.countingDate!),
+                        DateFormat(
+                          'dd MMM yyyy',
+                        ).format(election.countingDate!),
                       ),
 
                     if (election.resultDate != null)
@@ -900,13 +912,19 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                       ),
 
                     if (election.totalSeats != null)
-                      _buildDetailRow(Icons.event_seat, 'Total Seats', '${election.totalSeats}'),
+                      _buildDetailRow(
+                        Icons.event_seat,
+                        'Total Seats',
+                        '${election.totalSeats}',
+                      ),
 
                     if (election.totalVoters != null)
                       _buildDetailRow(
                         Icons.people,
                         'Total Voters',
-                        NumberFormat.decimalPattern().format(election.totalVoters),
+                        NumberFormat.decimalPattern().format(
+                          election.totalVoters,
+                        ),
                       ),
 
                     if (election.remarks.isNotEmpty)
@@ -930,7 +948,10 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                             icon: const Icon(Icons.edit),
                             label: const Text(
                               'Edit Election',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             onPressed: () {
                               Navigator.pop(context); // close bottom sheet
@@ -938,7 +959,9 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => ElectionDeclarationPage(election: election),
+                                  builder: (_) => ElectionDeclarationPage(
+                                    election: election,
+                                  ),
                                 ),
                               ).then((_) => _fetchElections());
                             },
@@ -972,7 +995,10 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
                               _deleteElection(election);
                             },
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Colors.red, width: 2),
+                              side: const BorderSide(
+                                color: Colors.red,
+                                width: 2,
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -1000,8 +1026,7 @@ class _ViewElectionsPageState extends State<ViewElectionsPage>
         color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
       ),
-      child:
-      Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: Colors.grey[700]),

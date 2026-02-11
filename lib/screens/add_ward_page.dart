@@ -38,7 +38,6 @@ class _AddWardPageState extends State<AddWardPage> {
 
   final RxString selectedElection = 'Select Election'.obs;
 
-
   @override
   void initState() {
     super.initState();
@@ -61,33 +60,30 @@ class _AddWardPageState extends State<AddWardPage> {
 
   Future<void> _fetchElections() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
 
     if (token == null) return;
 
     final response = await http.get(
       Uri.parse("$baseUrl/masteradmin/elections"),
-      headers: {
-        "Authorization": "Bearer $token",
-      },
+      headers: {"Authorization": "Bearer $token"},
     );
 
     if (response.statusCode == 200) {
       final List list = jsonDecode(response.body);
 
-      elections.assignAll(list
-          .where((e) => e['status'] != 'past') // safety
-          .map((e) => {
-        "id": e['id'],
-        "name": e['election_name'],
-      })
-          .toList());
+      elections.assignAll(
+        list
+            .where((e) => e['status'] != 'past') // safety
+            .map((e) => {"id": e['id'], "name": e['election_name']})
+            .toList(),
+      );
     }
   }
 
   Future<void> _createWard() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
 
     if (token == null) return;
 
@@ -116,7 +112,6 @@ class _AddWardPageState extends State<AddWardPage> {
       );
     }
   }
-
 
   int _calculateProgress() {
     int completed = 0;
@@ -149,7 +144,6 @@ class _AddWardPageState extends State<AddWardPage> {
 
     return !fieldErrors.values.contains(true);
   }
-
 
   void _showSuccessDialog() {
     showDialog(
@@ -682,10 +676,10 @@ class _AddWardPageState extends State<AddWardPage> {
                   onPressed: isSubmitting.value
                       ? null
                       : () async {
-                    if (_validateForm()) {
-                      isSubmitting.value = true;
-                      await _createWard();
-                      isSubmitting.value = false;
+                          if (_validateForm()) {
+                            isSubmitting.value = true;
+                            await _createWard();
+                            isSubmitting.value = false;
                             _showSuccessDialog();
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(

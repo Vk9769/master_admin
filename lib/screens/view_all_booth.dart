@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'dart:ui';
 
 class ViewAllBoothsPage extends StatefulWidget {
   const ViewAllBoothsPage({super.key});
@@ -30,13 +30,15 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
     try {
       // 1️⃣ Get token from SharedPreferences
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('auth_token');
+      String? token = prefs.getString('token');
 
       if (token == null) {
         throw Exception("No token found. Please login again.");
       }
       final response = await http.get(
-        Uri.parse('http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/booths'),
+        Uri.parse(
+          'http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/masteradmin/booths',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -56,12 +58,14 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
         }
 
         // Transform API response into nested map structure
-        final Map<String, Map<String, Map<String, Map<String, int>>>> transformed = {};
+        final Map<String, Map<String, Map<String, Map<String, int>>>>
+        transformed = {};
 
         for (var booth in data) {
           String state = booth['state']?.toString() ?? 'Unknown';
           String district = booth['district']?.toString() ?? 'Unknown';
-          String assembly = booth['assembly_constituency']?.toString() ?? 'Unknown';
+          String assembly =
+              booth['assembly_constituency']?.toString() ?? 'Unknown';
           String part = booth['part_name']?.toString() ?? 'Unknown';
           int booths = (booth['booths'] is int) ? booth['booths'] : 1;
 
@@ -84,9 +88,9 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
       });
 
       // Show error snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching booths: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error fetching booths: $e')));
 
       // Also print for debug console
       print('Error fetching booths: $e');
@@ -107,68 +111,74 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search State...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
-                ),
-              ),
-              onChanged: (val) {
-                setState(() {
-                  searchQuery = val;
-                });
-              },
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: filteredStates.length,
-              itemBuilder: (context, index) {
-                final stateEntry = filteredStates[index];
-                final stateName = stateEntry.key;
-                final totalBooths = stateEntry.value.values
-                    .map((district) => district.values
-                    .map((assembly) =>
-                    assembly.values.fold<int>(0, (a, b) => a + b))
-                    .fold<int>(0, (a, b) => a + b))
-                    .fold<int>(0, (a, b) => a + b);
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    title: Text(stateName),
-                    trailing: Text(
-                      '$totalBooths booths',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search State...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
                       ),
                     ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DistrictsPage(
-                            stateName: stateName,
-                            districts: stateEntry.value,
+                    onChanged: (val) {
+                      setState(() {
+                        searchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: filteredStates.length,
+                    itemBuilder: (context, index) {
+                      final stateEntry = filteredStates[index];
+                      final stateName = stateEntry.key;
+                      final totalBooths = stateEntry.value.values
+                          .map(
+                            (district) => district.values
+                                .map(
+                                  (assembly) => assembly.values.fold<int>(
+                                    0,
+                                    (a, b) => a + b,
+                                  ),
+                                )
+                                .fold<int>(0, (a, b) => a + b),
+                          )
+                          .fold<int>(0, (a, b) => a + b);
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        child: ListTile(
+                          title: Text(stateName),
+                          trailing: Text(
+                            '$totalBooths booths',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
                           ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DistrictsPage(
+                                  stateName: stateName,
+                                  districts: stateEntry.value,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       );
                     },
                   ),
-                );
-              },
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -177,7 +187,11 @@ class _ViewAllBoothsPageState extends State<ViewAllBoothsPage> {
 class DistrictsPage extends StatefulWidget {
   final String stateName;
   final Map<String, Map<String, Map<String, int>>> districts;
-  const DistrictsPage({super.key, required this.stateName, required this.districts});
+  const DistrictsPage({
+    super.key,
+    required this.stateName,
+    required this.districts,
+  });
 
   @override
   State<DistrictsPage> createState() => _DistrictsPageState();
@@ -224,7 +238,10 @@ class _DistrictsPageState extends State<DistrictsPage> {
                 final districtEntry = filteredDistricts[index];
                 final districtName = districtEntry.key;
                 final totalBooths = districtEntry.value.values
-                    .map((assembly) => assembly.values.fold<int>(0, (a, b) => a + b))
+                    .map(
+                      (assembly) =>
+                          assembly.values.fold<int>(0, (a, b) => a + b),
+                    )
                     .fold<int>(0, (a, b) => a + b);
                 return Card(
                   elevation: 2,
@@ -265,7 +282,11 @@ class _DistrictsPageState extends State<DistrictsPage> {
 class AssemblyPage extends StatefulWidget {
   final String districtName;
   final Map<String, Map<String, int>> assemblies;
-  const AssemblyPage({super.key, required this.districtName, required this.assemblies});
+  const AssemblyPage({
+    super.key,
+    required this.districtName,
+    required this.assemblies,
+  });
 
   @override
   State<AssemblyPage> createState() => _AssemblyPageState();
@@ -311,7 +332,10 @@ class _AssemblyPageState extends State<AssemblyPage> {
               itemBuilder: (context, index) {
                 final assemblyEntry = filteredAssemblies[index];
                 final assemblyName = assemblyEntry.key;
-                final totalBooths = assemblyEntry.value.values.fold<int>(0, (a, b) => a + b);
+                final totalBooths = assemblyEntry.value.values.fold<int>(
+                  0,
+                  (a, b) => a + b,
+                );
 
                 return Card(
                   elevation: 2,
@@ -359,6 +383,9 @@ class PartPage extends StatefulWidget {
 }
 
 class _PartPageState extends State<PartPage> {
+  String? selectedPart;
+  int? selectedBooths;
+
   String searchQuery = '';
 
   @override
@@ -372,55 +399,143 @@ class _PartPageState extends State<PartPage> {
         title: Text('${widget.assemblyName} - Part Names'),
         backgroundColor: Colors.blue,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search Part...',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8)),
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Search Part...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    setState(() {
+                      searchQuery = val;
+                    });
+                  },
                 ),
               ),
-              onChanged: (val) {
-                setState(() {
-                  searchQuery = val;
-                });
-              },
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: filteredParts.length,
-              itemBuilder: (context, index) {
-                final partName = filteredParts[index].key;
-                final booths = filteredParts[index].value;
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  child: ListTile(
-                    title: Text(partName),
-                    trailing: Text(
-                      '$booths booths',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filteredParts.length,
+                  itemBuilder: (context, index) {
+                    final partName = filteredParts[index].key;
+                    final booths = filteredParts[index].value;
+
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: ListTile(
+                        title: Text(partName),
+                        trailing: Text(
+                          '$booths booths',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            selectedPart = partName;
+                            selectedBooths = booths;
+                          });
+                        },
                       ),
-                    ),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Clicked $partName in ${widget.assemblyName}')),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
+
+          // ---------------- BOOTH INFO CARD WITH BLUR ----------------
+          if (selectedPart != null) ...[
+            // 🔹 Blur background
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedPart = null;
+                    selectedBooths = null;
+                  });
+                },
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.2), // dark overlay
+                  ),
+                ),
+              ),
+            ),
+
+            // 🔹 Center Booth Card
+            Center(
+              child: Card(
+                elevation: 10,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Booth Info',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            onPressed: () {
+                              setState(() {
+                                selectedPart = null;
+                                selectedBooths = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Assembly: ${widget.assemblyName}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Part Name: $selectedPart',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total Booths: $selectedBooths',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -5,8 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_dashboard.dart';
 
-
-
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -54,7 +52,26 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString("auth_token", data["token"]);
+
+      // ✅ MUST match dashboard
+      await prefs.setString("token", data["token"]);
+
+      // ✅ ADD LOGIN TIME (24h session)
+      await prefs.setInt("login_time", DateTime.now().millisecondsSinceEpoch);
+
+      // ✅ REQUIRED for drawer
+      final user = data["user"];
+
+      await prefs.setString("admin_name", user?["name"]?.toString() ?? "Admin");
+
+      await prefs.setString("admin_email", user?["email"]?.toString() ?? "");
+
+      await prefs.setString(
+        "admin_photo",
+        user?["profile_photo"]?.toString() ?? "",
+      );
+
+      // optional
       await prefs.setString("user_role", data["user"]["role"]);
 
       Fluttertoast.showToast(
@@ -69,7 +86,6 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(builder: (_) => const AdminDashboard()),
       );
-
     } catch (e) {
       Fluttertoast.showToast(
         msg: "Server not reachable",
@@ -79,7 +95,6 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _loading = false);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -96,22 +111,14 @@ class _LoginPageState extends State<LoginPage> {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [
-                  Colors.white,
-                  Colors.blue,
-                ],
-                stops: [
-                  0.4,
-                  1.0,
-                ],
+                colors: [Colors.white, Colors.blue],
+                stops: [0.4, 1.0],
               ),
             ),
             child: SafeArea(
               child: SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: IntrinsicHeight(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: sw * 0.08),
@@ -159,15 +166,14 @@ class _LoginPageState extends State<LoginPage> {
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
                                 labelText: "Email/VOTER ID/PHONE",
-                                prefixIcon:
-                                const Icon(Icons.email_outlined),
+                                prefixIcon: const Icon(Icons.email_outlined),
                                 border: OutlineInputBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              validator: (v) =>
-                              (v == null || v.isEmpty) ? "Enter email/voter id/phone" : null,
+                              validator: (v) => (v == null || v.isEmpty)
+                                  ? "Enter email/voter id/phone"
+                                  : null,
                             ),
                             const SizedBox(height: 20),
 
@@ -177,8 +183,7 @@ class _LoginPageState extends State<LoginPage> {
                               obscureText: _obscurePassword,
                               decoration: InputDecoration(
                                 labelText: "Password",
-                                prefixIcon:
-                                const Icon(Icons.lock_outline),
+                                prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     _obscurePassword
@@ -187,18 +192,15 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   onPressed: () {
                                     setState(() {
-                                      _obscurePassword =
-                                      !_obscurePassword;
+                                      _obscurePassword = !_obscurePassword;
                                     });
                                   },
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius:
-                                  BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
-                              validator: (v) =>
-                              (v == null || v.isEmpty)
+                              validator: (v) => (v == null || v.isEmpty)
                                   ? "Enter password"
                                   : null,
                             ),
@@ -208,14 +210,11 @@ class _LoginPageState extends State<LoginPage> {
                               child: TextButton(
                                 onPressed: () {
                                   Fluttertoast.showToast(
-                                    msg:
-                                    "Password recovery coming soon",
-                                    backgroundColor:
-                                    Colors.blueGrey,
+                                    msg: "Password recovery coming soon",
+                                    backgroundColor: Colors.blueGrey,
                                   );
                                 },
-                                child:
-                                const Text("Forgot Password?"),
+                                child: const Text("Forgot Password?"),
                               ),
                             ),
 
@@ -226,29 +225,24 @@ class _LoginPageState extends State<LoginPage> {
                               width: double.infinity,
                               height: 55,
                               child: ElevatedButton(
-                                onPressed:
-                                _loading ? null : _login,
-                                style:
-                                ElevatedButton.styleFrom(
+                                onPressed: _loading ? null : _login,
+                                style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blue,
-                                  shape:
-                                  RoundedRectangleBorder(
-                                    borderRadius:
-                                    BorderRadius.circular(
-                                        12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                                 child: _loading
                                     ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
+                                        color: Colors.white,
+                                      )
                                     : const Text(
-                                  "Login",
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                                        "Login",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                               ),
                             ),
 

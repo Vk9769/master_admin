@@ -674,7 +674,7 @@ class _ElectionDeclarationPageState extends State<ElectionDeclarationPage> {
   Future<void> _submitElection() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString("auth_token");
+      final token = prefs.getString("token");
 
       if (token == null) {
         ScaffoldMessenger.of(context).showSnackBar(

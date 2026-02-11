@@ -15,12 +15,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
   String _audience = 'All';
 
   final List<String> priorities = ['Normal', 'High', 'Urgent'];
-  final List<String> audiences = [
-    'All',
-    'Admins',
-    'Super Agents',
-    'Voters',
-  ];
+  final List<String> audiences = ['All', 'Admins', 'Super Agents', 'Voters'];
 
   @override
   void dispose() {
@@ -30,12 +25,9 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
   }
 
   void _sendNotification() {
-    if (_titleController.text.isEmpty ||
-        _messageController.text.isEmpty) {
+    if (_titleController.text.isEmpty || _messageController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter title and message'),
-        ),
+        const SnackBar(content: Text('Please enter title and message')),
       );
       return;
     }
@@ -51,9 +43,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Notification sent to $_audience successfully',
-        ),
+        content: Text('Notification sent to $_audience successfully'),
         backgroundColor: Colors.green,
       ),
     );
@@ -73,10 +63,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
       appBar: AppBar(
         title: const Text(
           'Send Notification',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         centerTitle: true,
         backgroundColor: Colors.blue,
@@ -112,8 +99,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
             _inputField(
               label: 'Notification Message',
               controller: _messageController,
-              hint:
-              'Write the message you want to deliver...',
+              hint: 'Write the message you want to deliver...',
               maxLines: 5,
               maxLength: 500,
             ),
@@ -149,11 +135,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
       ),
       child: Row(
         children: const [
-          Icon(
-            Icons.notifications_active,
-            color: Colors.blue,
-            size: 32,
-          ),
+          Icon(Icons.notifications_active, color: Colors.blue, size: 32),
           SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -201,12 +183,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
         DropdownButtonFormField<String>(
           value: value,
           items: items
-              .map(
-                (e) => DropdownMenuItem(
-              value: e,
-              child: Text(e),
-            ),
-          )
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
           onChanged: onChanged,
           decoration: InputDecoration(
@@ -286,9 +263,7 @@ class _SendNotificationPageState extends State<SendNotificationPage> {
                     color: selected ? Colors.blue : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected
-                          ? Colors.blue
-                          : Colors.grey.shade300,
+                      color: selected ? Colors.blue : Colors.grey.shade300,
                     ),
                   ),
                   child: Text(

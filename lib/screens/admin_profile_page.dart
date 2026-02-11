@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/foundation.dart';
 
-
 class AdminProfilePage extends StatefulWidget {
   const AdminProfilePage({super.key});
 
@@ -25,24 +24,25 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   String firstName = '';
   String lastName = '';
   String gender = 'Male';
-  String selectedDocument = 'Aadhar Card';
+  String selectedDocument = 'Aadhaar';
   String documentNumber = '';
 
-  File? _profileImageFile;        // Android / iOS
-  Uint8List? _webImageBytes;     // Web
-  String? _profileImageUrl;      // backend image
-
+  File? _profileImageFile; // Android / iOS
+  Uint8List? _webImageBytes; // Web
+  String? _profileImageUrl; // backend image
 
   final ImagePicker _picker = ImagePicker();
   final List<String> _documentTypes = [
     'Aadhaar',
     'Passport',
     'Voter ID',
-    'Driving License'
+    'Driving License',
   ];
 
   String normalizeDocumentType(String? dbValue) {
-    if (dbValue == null) return 'Aadhaar';
+    if (dbValue == null || dbValue.isEmpty) {
+      return _documentTypes.first; // Aadhaar
+    }
 
     final value = dbValue.toUpperCase();
 
@@ -59,9 +59,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       return 'Driving License';
     }
 
-    return 'Aadhaar'; // safe fallback
+    // 🔒 fallback guaranteed to exist
+    return _documentTypes.first;
   }
-
 
   final List<String> _genderList = ['Male', 'Female', 'Other'];
 
@@ -73,7 +73,14 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   Future<void> _loadAdminData() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
+
+    debugPrint("🔐 Token loaded: ${token != null}");
+
+    if (token == null || token.isEmpty) {
+      Fluttertoast.showToast(msg: "Session expired. Please login again.");
+      return;
+    }
 
     final res = await http.get(
       Uri.parse(
@@ -82,7 +89,24 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       headers: {"Authorization": "Bearer $token"},
     );
 
+    if (res.statusCode != 200) {
+      Fluttertoast.showToast(msg: "Failed to load profile (${res.statusCode})");
+      return;
+    }
+
     final data = jsonDecode(res.body);
+
+    await prefs.setString(
+      "admin_photo",
+      data["profile_photo"]?.toString() ?? "",
+    );
+
+    await prefs.setString(
+      "admin_name",
+      "${data["first_name"] ?? ""} ${data["last_name"] ?? ""}",
+    );
+
+    await prefs.setString("admin_email", data["email"] ?? "");
 
     setState(() {
       firstName = data["first_name"] ?? "";
@@ -96,9 +120,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       documentNumber = data["gov_id_no"] ?? "";
       _profileImageUrl = data["profile_photo"];
     });
-
   }
-
 
   Future<void> _pickImage() async {
     final picked = await _picker.pickImage(
@@ -122,8 +144,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     }
   }
 
-
-
   ImageProvider profileImageProvider() {
     // 1️⃣ Picked image preview (WEB)
     if (kIsWeb && _webImageBytes != null) {
@@ -143,15 +163,12 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     }
 
     // 4️⃣ Default avatar
-    return const AssetImage("admin_avatar.png");
+    return const AssetImage("assets/admin_avatar.png");
   }
-
-
-
 
   Future<void> _uploadPhoto() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
 
     if (token == null) return;
 
@@ -174,10 +191,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       );
     } else if (!kIsWeb && _profileImageFile != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(
-          "photo",
-          _profileImageFile!.path,
-        ),
+        await http.MultipartFile.fromPath("photo", _profileImageFile!.path),
       );
     } else {
       return;
@@ -199,12 +213,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     }
   }
 
-
-
-
   Future<void> _saveProfile() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
+    final token = prefs.getString("token");
 
     // 1️⃣ Upload photo IF user selected one
     if (_profileImageFile != null || _webImageBytes != null) {
@@ -232,7 +243,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
     Fluttertoast.showToast(msg: "Profile updated successfully");
   }
-
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -278,8 +288,11 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                           color: Colors.blue,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.edit,
-                            color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.edit,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
@@ -295,8 +308,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text("Admin ID: $adminId",
-                  style: const TextStyle(color: Colors.black54)),
+              Text(
+                "Admin ID: $adminId",
+                style: const TextStyle(color: Colors.black54),
+              ),
               const SizedBox(height: 25),
 
               // Editable Info Fields
@@ -333,10 +348,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       const Icon(Icons.wc, color: Colors.blue),
@@ -347,10 +365,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           items: _genderList
-                              .map((g) => DropdownMenuItem(
-                            value: g,
-                            child: Text(g),
-                          ))
+                              .map(
+                                (g) =>
+                                    DropdownMenuItem(value: g, child: Text(g)),
+                              )
                               .toList(),
                           onChanged: (value) {
                             if (value != null) {
@@ -371,10 +389,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       const Icon(Icons.description, color: Colors.blue),
@@ -385,10 +406,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           items: _documentTypes
-                              .map((d) => DropdownMenuItem(
-                            value: d,
-                            child: Text(d),
-                          ))
+                              .map(
+                                (d) =>
+                                    DropdownMenuItem(value: d, child: Text(d)),
+                              )
                               .toList(),
                           onChanged: (value) {
                             if (value != null) {
@@ -414,7 +435,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
               ),
               const SizedBox(height: 20),
 
-
               // Save + Logout Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -438,7 +458,8 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         builder: (context) => AlertDialog(
                           title: const Text("Confirm Logout"),
                           content: const Text(
-                              "Are you sure you want to logout?"),
+                            "Are you sure you want to logout?",
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
@@ -446,8 +467,10 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(context, true),
-                              child: const Text("Logout",
-                                  style: TextStyle(color: Colors.red)),
+                              child: const Text(
+                                "Logout",
+                                style: TextStyle(color: Colors.red),
+                              ),
                             ),
                           ],
                         ),
@@ -485,8 +508,8 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: TextField(
-          controller: controller,
+        child: TextFormField(
+          initialValue: value,
           onChanged: onChanged,
           decoration: InputDecoration(
             icon: Icon(icon, color: Colors.blue),
@@ -509,9 +532,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 4),
               Text(value, style: const TextStyle(color: Colors.black54)),
             ],

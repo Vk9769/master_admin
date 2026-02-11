@@ -28,7 +28,7 @@ class _ViewAllVotersPageState extends State<ViewAllVotersPage> {
 
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('auth_token');
+      String? token = prefs.getString('token');
 
       if (token == null) {
         throw Exception("No token found. Please login again.");
@@ -337,7 +337,7 @@ class _VoterListPageState extends State<VoterListPage> {
 
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('auth_token');
+      String? token = prefs.getString('token');
 
       if (token == null) throw Exception('No token found.');
 
