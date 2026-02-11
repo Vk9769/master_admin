@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_candidate_page.dart';
@@ -19,6 +20,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
   bool _isLoading = true;
   late AnimationController _fadeController;
   late AnimationController _slideController;
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+  List<Map<String, dynamic>> _elections = [];
+  int? _selectedElectionId;
 
   @override
   void initState() {
@@ -33,6 +38,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     );
     _loadAdminData();
     _loadCandidates();
+    _loadElections();
   }
 
   @override
@@ -52,16 +58,53 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       debugPrint('Error loading admin data: $e');
     }
   }
+  Future<void> _loadElections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/masteradmin/elections"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _elections = List<Map<String, dynamic>>.from(data);
+      });
+    }
+  }
 
   Future<void> _loadCandidates() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? data = prefs.getString('candidates_list');
-      if (data != null) {
+      final token = prefs.getString("token");
+
+      if (token == null) return;
+
+      // 🔥 Replace with selected election id
+      if (_selectedElectionId == null) return;
+
+      int electionId = _selectedElectionId!;
+
+
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/candidate/list/$electionId"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
         setState(() {
-          _candidates = List<Map<String, dynamic>>.from(json.decode(data));
+          _candidates = List<Map<String, dynamic>>.from(data);
           _isLoading = false;
         });
+
         _fadeController.forward();
         _slideController.forward();
       } else {
@@ -69,9 +112,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint('Error loading candidates: $e');
+      debugPrint("Error loading candidates: $e");
     }
   }
+
 
   Future<void> _saveCandidates() async {
     try {
@@ -122,9 +166,11 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     }
   }
 
-  void _deleteCandidate(int index) {
-    final candidateName = _candidates[index]['name'] ?? 'this candidate';
-    final deletedCandidate = Map<String, dynamic>.from(_candidates[index]);
+  Future<void> _deleteCandidate(int index) async {
+    final candidate = _candidates[index];
+    final candidateId = candidate['id'];
+    final candidateName =
+        "${candidate['first_name']} ${candidate['last_name'] ?? ''}";
 
     showDialog(
       context: context,
@@ -132,8 +178,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          insetPadding:
+          const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -186,7 +234,8 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 12),
                         ),
                         onPressed: () => Navigator.pop(context),
                         child: const Text(
@@ -205,42 +254,55 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.pop(context);
 
-                          setState(() {
-                            _candidates.removeAt(index);
-                          });
-                          _saveCandidates();
+                          try {
+                            SharedPreferences prefs =
+                            await SharedPreferences.getInstance();
+                            final token = prefs.getString("token");
 
-                          final snackBar = SnackBar(
-                            content: Text('$candidateName deleted'),
-                            backgroundColor: Colors.red.shade700,
-                            duration: const Duration(seconds: 4),
-                            action: SnackBarAction(
-                              label: 'UNDO',
-                              textColor: Colors.yellow,
-                              onPressed: () {
-                                setState(() {
-                                  _candidates.insert(index, deletedCandidate);
-                                });
-                                _saveCandidates();
-
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content:
-                                    Text('$candidateName restored successfully'),
-                                    backgroundColor: Colors.green.shade700,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
+                            final response = await http.delete(
+                              Uri.parse(
+                                  "$baseUrl/candidate/delete/$candidateId"),
+                              headers: {
+                                "Authorization": "Bearer $token",
                               },
-                            ),
-                          );
+                            );
 
-                          ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                            if (response.statusCode == 200) {
+                              setState(() {
+                                _candidates.removeAt(index);
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      "$candidateName deleted successfully"),
+                                  backgroundColor: Colors.red.shade700,
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content:
+                                  const Text("Delete failed"),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content:
+                                const Text("Server error"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         },
                         child: const Text(
                           'Delete',
@@ -259,6 +321,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     );
   }
 
+
   void _navigateToAddCandidate() async {
     final result = await Navigator.push(
       context,
@@ -276,7 +339,8 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         },
       ),
     );
-    if (result != null) _addCandidate(result);
+
+    _loadCandidates(); // 🔥 Refresh from backend
   }
 
   void _navigateToEditCandidate(Map<String, dynamic> candidate, int index) async {
@@ -296,7 +360,15 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         },
       ),
     );
-    if (result != null) _editCandidate(index, result);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditCandidatePage(candidate: candidate),
+      ),
+    );
+
+    _loadCandidates(); // 🔥 Refresh
+
   }
 
   void _viewCandidateDetails(Map<String, dynamic> candidate) {
@@ -324,9 +396,11 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
   Widget _buildCandidateCard(
       Map<String, dynamic> candidate, int index) {
     ImageProvider? displayImage;
-    if (candidate['symbol'] != null && candidate['symbol'].isNotEmpty) {
-      displayImage = MemoryImage(base64Decode(candidate['symbol']));
-    } else if (candidate['image'] != null && candidate['image'].isNotEmpty) {
+
+    if (candidate['candidate_photo_url'] != null) {
+      displayImage = NetworkImage(candidate['candidate_photo_url']);
+    }
+    else if (candidate['image'] != null && candidate['image'].isNotEmpty) {
       displayImage = MemoryImage(base64Decode(candidate['image']));
     }
 
@@ -338,7 +412,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         leading: Hero(
-          tag: 'candidate_${candidate['name']}',
+          tag: "candidate_${candidate['id']}",
           child: CircleAvatar(
             radius: 28,
             backgroundColor: Colors.blue.shade100,
@@ -349,7 +423,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
           ),
         ),
         title: Text(
-          candidate['name'] ?? 'Unnamed',
+          "${candidate['first_name']} ${candidate['last_name'] ?? ''}",
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -425,65 +499,121 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
           ),
         ),
       ),
-      body: _isLoading
-          ? // Added loading indicator
-      Center(
-        child: CircularProgressIndicator(
-          color: Colors.blue.shade700,
-        ),
-      )
-          : _candidates.isEmpty
-          ? // Enhanced empty state
-      Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.people_outline,
-                size: 80, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              'No Candidates Yet',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade600,
+      body: Column(
+        children: [
+
+          // 🔥 ELECTION DROPDOWN SECTION
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: DropdownButtonFormField<int>(
+              value: _selectedElectionId,
+              items: _elections.map((e) {
+                return DropdownMenuItem<int>(
+                  value: e['id'],
+                  child: Text(e['election_name']),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedElectionId = value;
+                });
+                _loadCandidates(); // 🔥 Load candidates when election changes
+              },
+              decoration: InputDecoration(
+                labelText: "Select Election",
+                prefixIcon: Icon(Icons.how_to_vote, color: Colors.blue.shade700),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.blue.shade50,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add your first candidate to get started',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade500,
+          ),
+
+          // 🔥 MAIN CONTENT
+          Expanded(
+            child: _isLoading
+                ? Center(
+              child: CircularProgressIndicator(
+                color: Colors.blue.shade700,
+              ),
+            )
+                : _selectedElectionId == null
+                ? Center(
+              child: Text(
+                "Please select an election",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            )
+                : _candidates.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.people_outline,
+                      size: 80,
+                      color: Colors.grey.shade400),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No Candidates Yet',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Add your first candidate to get started',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : FadeTransition(
+              opacity: _fadeController,
+              child: SlideTransition(
+                position: _slideController.drive(
+                  Tween(
+                    begin: const Offset(0, 0.1),
+                    end: Offset.zero,
+                  ).chain(
+                    CurveTween(
+                      curve: Curves.easeInOutCubic,
+                    ),
+                  ),
+                ),
+                child: RefreshIndicator(
+                  onRefresh: _loadCandidates,
+                  backgroundColor: Colors.white,
+                  color: Colors.blue.shade700,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _candidates.length,
+                    itemBuilder: (context, index) =>
+                        _buildCandidateCard(
+                            _candidates[index], index),
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
-      )
-          : FadeTransition(
-        opacity: _fadeController,
-        child: SlideTransition(
-          position: _slideController.drive(
-            Tween(begin: const Offset(0, 0.1), end: Offset.zero)
-                .chain(CurveTween(curve: Curves.easeInOutCubic)),
           ),
-          child: RefreshIndicator(
-            onRefresh: _loadCandidates,
-            backgroundColor: Colors.white,
-            color: Colors.blue.shade700,
-            child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _candidates.length,
-              itemBuilder: (context, index) =>
-                  _buildCandidateCard(_candidates[index], index),
-            ),
-          ),
-        ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.blue.shade700,
         elevation: 5,
-        onPressed: _navigateToAddCandidate,
+        onPressed: _selectedElectionId == null
+            ? null
+            : _navigateToAddCandidate,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Add Candidate',

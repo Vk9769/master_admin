@@ -24,19 +24,28 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
 
   final TextEditingController searchVoterController = TextEditingController();
   bool isSearchingVoter = false;
+  final TextEditingController passwordController = TextEditingController();
+  bool obscurePassword = true;
 
   String? selectedGender;
   File? candidatePhoto;
   File? symbolPhoto;
   bool _isSubmitting = false;
+  bool _isVoterLocked = false;
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
+
 
   // ✅ Election Selection Variables
 
-  String? selectedElection;
   String? selectedType; // AC or Ward
   String? selectedArea;
 
-  List<String> electionList = [];
+  List<Map<String, dynamic>> electionList = [];
+  int? selectedElectionId;
+
   List<String> typeList = ['AC', 'Ward'];
   List<String> areaList = [];
 
@@ -53,6 +62,7 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
     phoneController.dispose();
     emailController.dispose();
     searchVoterController.dispose(); // ✅ ADD THIS
+    passwordController.dispose();
     super.dispose();
   }
 
@@ -63,35 +73,70 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
   }
 
   Future<void> _loadElections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    if (token == null) return;
+
     try {
-      // 🔥 Replace with your API later
-      // Example dummy data:
+      final response = await http.get(
+        Uri.parse("$baseUrl/masteradmin/elections"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
 
-      setState(() {
-        electionList = [
-          "Mumbai Municipal Election",
-          "State Assembly Election",
-          "Lok Sabha Election",
-        ];
-      });
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          electionList = data
+              .where((e) => e['status'] != 'past')
+              .map((e) => {
+            "id": e['id'],
+            "name": e['election_name'],
+          })
+              .toList();
+        });
+      }
     } catch (e) {
-      debugPrint("Error loading elections: $e");
+      debugPrint("Election load error: $e");
     }
   }
 
-  void _loadAreas() {
-    // 🔥 Replace with API call later
 
-    if (selectedElection == null || selectedType == null) return;
 
-    if (selectedType == "AC") {
-      areaList = ["AC 101", "AC 102", "AC 103"];
-    } else {
-      areaList = ["Ward A", "Ward B", "Ward C"];
+  Future<void> _loadAreas() async {
+    if (selectedElectionId == null || selectedType == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    try {
+      if (selectedType == "Ward") {
+        final response = await http.get(
+          Uri.parse("$baseUrl/api/wards?election_id=$selectedElectionId"),
+          headers: {
+            "Authorization": "Bearer $token",
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final List data = jsonDecode(response.body);
+
+          setState(() {
+            areaList = data
+                .map((e) => "${e['id']}|${e['ward_name']}")
+                .toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Area load error: $e");
     }
-
-    setState(() {});
   }
+
+
 
   Future<void> _searchVoter() async {
     if (searchVoterController.text.trim().isEmpty) {
@@ -101,41 +146,44 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
 
     setState(() {
       isSearchingVoter = true;
+      _isVoterLocked = false;
     });
 
     try {
-      // 🔥 Replace with REAL API later
-      // Example dummy response
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl/api/common/search-user?voter_id=${searchVoterController.text.trim()}",
+        ),
+      );
 
-      await Future.delayed(const Duration(seconds: 1));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
 
-      final response = {
-        "name": "Rahul Sharma",
-        "age": "35",
-        "gender": "Male",
-        "aadhaar": "123456789012",
-        "phone": "9876543210",
-        "email": "rahul@email.com",
-      };
+        if (data == null) {
+          _showError("User not found");
+        } else {
+          nameController.text =
+          "${data["first_name"] ?? ""} ${data["last_name"] ?? ""}";
+          ageController.text = data["age"]?.toString() ?? "";
+          phoneController.text = data["phone"] ?? "";
+          emailController.text = data["email"] ?? "";
+          voterIdController.text = data["voter_id"] ?? "";
 
-      setState(() {
-        nameController.text = response["name"] ?? "";
-        ageController.text = response["age"] ?? "";
-        selectedGender = response["gender"];
-        aadhaarController.text = response["aadhaar"] ?? "";
-        phoneController.text = response["phone"] ?? "";
-        emailController.text = response["email"] ?? "";
-        voterIdController.text = searchVoterController.text.trim();
-      });
+          String? genderFromApi = data["gender"];
+          if (genderFromApi == "M") selectedGender = "Male";
+          if (genderFromApi == "F") selectedGender = "Female";
+          if (genderFromApi == "O") selectedGender = "Other";
+
+          setState(() {
+            _isVoterLocked = true; // 🔥 LOCK FIELDS
+          });
+        }
+      }
     } catch (e) {
-      _showError("Voter not found");
+      _showError("Search failed");
     }
 
-    if (!mounted) return;
-
-    setState(() {
-      isSearchingVoter = false;
-    });
+    setState(() => isSearchingVoter = false);
   }
 
   Future<void> _pickImage(bool isCandidatePhoto) async {
@@ -167,7 +215,7 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
   }
 
   bool _validateForm() {
-    if (selectedElection == null) {
+    if (selectedElectionId == null) {
       _showError('Please select election');
       return false;
     }
@@ -218,6 +266,17 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
       _showError('Please enter email address');
       return false;
     }
+
+    if (passwordController.text.trim().isEmpty) {
+      _showError('Please enter password');
+      return false;
+    }
+
+    if (passwordController.text.length < 6) {
+      _showError('Password must be at least 6 characters');
+      return false;
+    }
+
     if (!RegExp(
       r'^[^@]+@[^@]+\.[^@]+$',
     ).hasMatch(emailController.text.trim())) {
@@ -254,56 +313,98 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
 
     setState(() => _isSubmitting = true);
 
-    try {
-      if (candidatePhoto == null || symbolPhoto == null) {
-        throw Exception("Please select both candidate and symbol photos");
-      }
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
 
-      final candidateBytes = await candidatePhoto!.readAsBytes();
-      final symbolBytes = await symbolPhoto!.readAsBytes();
-
-      final candidateBase64 = base64Encode(candidateBytes);
-      final symbolBase64 = base64Encode(symbolBytes);
-
-      if (!mounted) return;
-
-      final candidateData = {
-        'name': nameController.text.trim(),
-        'party': partyController.text.trim(),
-        'age': ageController.text.trim(),
-        'gender': selectedGender,
-        'voterId': voterIdController.text.trim(),
-        'aadhaar': aadhaarController.text.trim(),
-        'phone': phoneController.text.trim(),
-        'email': emailController.text.trim(),
-        'description': descriptionController.text.trim(),
-        // ✅ Only store base64 (no File objects!)
-        'image': candidateBase64,
-        'symbol': symbolBase64,
-        'election': selectedElection,
-        'type': selectedType,
-        'area': selectedArea,
-      };
-
-      Navigator.pop(context, candidateData);
-
-      setState(() => _isSubmitting = false);
-    } catch (e, stacktrace) {
-      setState(() => _isSubmitting = false);
-      debugPrint('❌ Error saving candidate: $e');
-      debugPrintStack(stackTrace: stacktrace);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving candidate: ${e.toString()}'),
-            backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+    if (token == null) {
+      _showError("Authentication required");
+      return;
     }
+
+    try {
+      final request = http.MultipartRequest(
+        "POST",
+        Uri.parse("$baseUrl/candidate/create"),
+      );
+
+      request.headers["Authorization"] = "Bearer $token";
+
+      request.fields["election_id"] = selectedElectionId.toString();
+      request.fields["voter_id"] = voterIdController.text.trim();
+      request.fields["first_name"] = nameController.text.trim();
+      request.fields["last_name"] = "";
+      request.fields["phone"] = phoneController.text.trim();
+      request.fields["email"] = emailController.text.trim();
+      request.fields["password"] = passwordController.text.trim();
+      request.fields["gender"] = selectedGender ?? "";
+      request.fields["age"] = ageController.text.trim();
+      request.fields["party"] = partyController.text.trim();
+      request.fields["candidate_type"] = "party";
+
+      if (selectedType == "Ward" && selectedArea != null) {
+        request.fields["ward_id"] =
+        selectedArea!.split("|")[0];
+      }
+
+      // 🔥 Attach Images
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "candidate_photo",
+          candidatePhoto!.path,
+        ),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          "party_symbol",
+          symbolPhoto!.path,
+        ),
+      );
+
+      final response = await request.send();
+      final responseBody =
+      await response.stream.bytesToString();
+
+      final resData = jsonDecode(responseBody);
+
+      if (response.statusCode == 200) {
+        _showSuccessDialog();
+      } else {
+        _showError(resData["message"] ?? "Failed");
+      }
+    } catch (e) {
+      _showError("Upload failed");
+    }
+
+    setState(() => _isSubmitting = false);
   }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: const Text(
+          "Candidate Created Successfully!",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text("Done"),
+          )
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildPhotoSelector({
     required String title,
@@ -378,6 +479,7 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
     required IconData icon,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    bool enabled = true,
   }) {
     return TextField(
       controller: controller,
@@ -426,14 +528,17 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
             const SizedBox(height: 16),
 
             // Election Dropdown
-            DropdownButtonFormField<String>(
-              value: selectedElection,
-              items: electionList
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
+            DropdownButtonFormField<int>(
+              value: selectedElectionId,
+              items: electionList.map((e) {
+                return DropdownMenuItem<int>(
+                  value: e['id'],
+                  child: Text(e['name']),
+                );
+              }).toList(),
               onChanged: (value) {
                 setState(() {
-                  selectedElection = value;
+                  selectedElectionId = value;
                   selectedType = null;
                   selectedArea = null;
                   areaList.clear();
@@ -453,7 +558,7 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
             const SizedBox(height: 16),
 
             // AC / Ward selector
-            if (selectedElection != null)
+            if (selectedElectionId != null)
               DropdownButtonFormField<String>(
                 value: selectedType,
                 items: typeList
@@ -667,6 +772,34 @@ class _AddCandidatePageState extends State<AddCandidatePage> {
               icon: Icons.email,
               keyboardType: TextInputType.emailAddress,
             ),
+
+            const SizedBox(height: 16),
+
+            TextField(
+              controller: passwordController,
+              obscureText: obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'Password *',
+                prefixIcon: Icon(Icons.lock, color: themeColor),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: themeColor,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      obscurePassword = !obscurePassword;
+                    });
+                  },
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: Colors.blue.shade50,
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // Submit Button
