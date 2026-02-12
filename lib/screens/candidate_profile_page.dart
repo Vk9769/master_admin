@@ -1,29 +1,127 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class CandidateProfilePage extends StatelessWidget {
-  final Map<String, dynamic> candidate;
+import 'package:shared_preferences/shared_preferences.dart';
 
-  const CandidateProfilePage({Key? key, required this.candidate})
+class CandidateProfilePage extends StatefulWidget {
+  final int candidateId;
+
+  const CandidateProfilePage({Key? key, required this.candidateId})
       : super(key: key);
 
-  ImageProvider? _getImageProvider(String? base64String) {
-    if (base64String != null && base64String.isNotEmpty) {
-      try {
-        return MemoryImage(base64Decode(base64String));
-      } catch (e) {
-        debugPrint('Error decoding image: $e');
-      }
-    }
-    return null;
+  @override
+  State<CandidateProfilePage> createState() => _CandidateProfilePageState();
+}
+
+class _CandidateProfilePageState extends State<CandidateProfilePage> {
+  Map<String, dynamic>? candidate;
+  bool isLoading = true;
+
+  final String baseUrl =
+      "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCandidateDetails();
   }
+
+  Future<void> _loadCandidateDetails() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/candidate/details/${widget.candidateId}"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          candidate = jsonDecode(response.body);
+          isLoading = false;
+        });
+      } else {
+        setState(() => isLoading = false);
+      }
+    } catch (e) {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _updateNominationStatus(String status) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+
+      final response = await http.put(
+        Uri.parse("$baseUrl/candidate/update/${widget.candidateId}"),
+        headers: {
+          "Authorization": "Bearer $token",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "nomination_status": status,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Candidate $status successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        _loadCandidateDetails(); // 🔥 refresh UI
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Update failed"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Server error"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final themeColor = Colors.blue.shade700;
-    final symbolImage = _getImageProvider(candidate['symbol']);
-    final profileImage = _getImageProvider(candidate['image']);
+
+    if (isLoading) {
+      return Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: themeColor),
+        ),
+      );
+    }
+
+    if (candidate == null) {
+      return const Scaffold(
+        body: Center(child: Text("Candidate not found")),
+      );
+    }
+
+    final profileImage = candidate!['candidate_photo_url'] != null
+        ? NetworkImage(candidate!['candidate_photo_url'])
+        : null;
+
+    final symbolImage = candidate!['party_symbol_url'] != null
+        ? NetworkImage(candidate!['party_symbol_url'])
+        : null;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -32,15 +130,9 @@ class CandidateProfilePage extends StatelessWidget {
           SliverAppBar(
             expandedHeight: 380,
             pinned: true,
-            elevation: 0,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.blue.shade700,
             flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              background: _buildTricolorHeader(
-                profileImage,
-                symbolImage,
-                themeColor,
-              ),
+              background: _buildTricolorHeader(profileImage, symbolImage, themeColor),
             ),
           ),
           SliverToBoxAdapter(
@@ -49,61 +141,150 @@ class CandidateProfilePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("Personal Information"),
-                  _buildInfoCard(Icons.person, "Name", candidate['name'], themeColor),
-                  _buildInfoCard(Icons.wc, "Gender", candidate['gender'], themeColor),
-                  _buildInfoCard(Icons.cake, "Age", candidate['age'], themeColor),
-                  const SizedBox(height: 20),
 
-                  _buildSectionTitle("Government IDs"),
-                  _buildInfoCard(Icons.credit_card, "Voter ID", candidate['voterId'], themeColor),
-                  _buildInfoCard(Icons.badge, "Aadhaar Card", candidate['aadhaar'], themeColor),
+                  _buildSectionTitle("Personal Information"),
+                  _buildInfoCard(Icons.person, "Name",
+                      "${candidate!['first_name']} ${candidate!['last_name'] ?? ''}",
+                      themeColor),
+                  _buildInfoCard(Icons.wc, "Gender",
+                      candidate!['gender'], themeColor),
+                  _buildInfoCard(Icons.cake, "Age",
+                      candidate!['age'], themeColor),
+
                   const SizedBox(height: 20),
 
                   _buildSectionTitle("Contact Information"),
-                  _buildInfoCard(Icons.phone_android, "Phone", candidate['phone'], themeColor),
-                  _buildInfoCard(Icons.email, "Email", candidate['email'], themeColor),
+                  _buildInfoCard(Icons.phone_android, "Phone",
+                      candidate!['phone'], themeColor),
+                  _buildInfoCard(Icons.email, "Email",
+                      candidate!['email'], themeColor),
+
                   const SizedBox(height: 20),
 
                   _buildSectionTitle("Political Information"),
-                  _buildInfoCard(Icons.flag, "Party", candidate['party'], themeColor),
-                  _buildInfoCard(Icons.location_city, "Constituency", candidate['constituency'], themeColor),
+                  _buildInfoCard(Icons.flag, "Party",
+                      candidate!['party'], themeColor),
+
+                  const SizedBox(height: 12),
+
+                  Center(
+                    child: _buildStatusBadge(candidate!['nomination_status']),
+                  ),
                   const SizedBox(height: 20),
 
-                  if (candidate['description'] != null &&
-                      candidate['description'].toString().trim().isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionTitle("Description"),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: themeColor.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: themeColor.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            candidate['description'],
-                            style: const TextStyle(
-                              fontSize: 15,
-                              height: 1.6,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
+                  if (candidate!['nomination_status'] != "approved")
+                    _buildActionButton(
+                      text: "Approve Candidate",
+                      color: Colors.green,
+                      onPressed: () => _updateNominationStatus("approved"),
                     ),
-                  const SizedBox(height: 30),
+
+                  const SizedBox(height: 12),
+
+                  if (candidate!['nomination_status'] != "rejected")
+                    _buildActionButton(
+                      text: "Reject Candidate",
+                      color: Colors.red,
+                      onPressed: () => _updateNominationStatus("rejected"),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  if (candidate!['nomination_status'] == "approved") ...[
+                    _buildInfoCard(
+                      Icons.verified,
+                      "Approved By",
+                      "${candidate!['approved_by_name'] ?? ''} ${candidate!['approved_by_last'] ?? ''}",
+                      themeColor,
+                    ),
+                    _buildInfoCard(
+                      Icons.schedule,
+                      "Approved At",
+                      candidate!['approved_at'],
+                      themeColor,
+                    ),
+                  ],
+                  if (candidate!['nomination_status'] == "rejected") ...[
+                    _buildInfoCard(
+                      Icons.cancel,
+                      "Rejected By",
+                      "${candidate!['rejected_by_name'] ?? ''} ${candidate!['rejected_by_last'] ?? ''}",
+                      themeColor,
+                    ),
+                    _buildInfoCard(
+                      Icons.schedule,
+                      "Rejected At",
+                      candidate!['rejected_at'],
+                      themeColor,
+                    ),
+                  ],
+
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+  Widget _buildStatusBadge(String? status) {
+    Color badgeColor;
+    String displayText;
+
+    switch (status?.toLowerCase()) {
+      case "approved":
+        badgeColor = Colors.green;
+        displayText = "APPROVED";
+        break;
+      case "rejected":
+        badgeColor = Colors.red;
+        displayText = "REJECTED";
+        break;
+      default:
+        badgeColor = Colors.orange;
+        displayText = "PENDING";
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        displayText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String text,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        onPressed: onPressed,
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
@@ -135,7 +316,7 @@ class CandidateProfilePage extends StatelessWidget {
               children: [
                 // Candidate photo
                 Hero(
-                  tag: 'profile_photo_${candidate['name']}',
+                  tag: "candidate_${candidate!['id']}",
                   child: CircleAvatar(
                     radius: 65,
                     backgroundColor: Colors.white,
@@ -149,7 +330,7 @@ class CandidateProfilePage extends StatelessWidget {
 
                 // Candidate name
                 Text(
-                  candidate['name'] ?? "Candidate Name",
+                  "${candidate!['first_name']} ${candidate!['last_name'] ?? ''}",
                   style: const TextStyle(
                     fontSize: 22,
                     color: Colors.white,
@@ -204,7 +385,7 @@ class CandidateProfilePage extends StatelessWidget {
 
                 // Party name
                 Text(
-                  candidate['party'] ?? "Party Name",
+                  candidate!['party'] ?? "Party Name",
                   style: const TextStyle(
                     fontSize: 18,
                     color: Colors.white,

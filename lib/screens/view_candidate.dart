@@ -348,7 +348,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditCandidatePage(candidate: candidate),
+            EditCandidatePage(candidateId: candidate['id']),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
@@ -360,15 +360,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         },
       ),
     );
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => EditCandidatePage(candidate: candidate),
-      ),
-    );
-
     _loadCandidates(); // 🔥 Refresh
-
   }
 
   void _viewCandidateDetails(Map<String, dynamic> candidate) {
@@ -376,7 +368,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            CandidateProfilePage(candidate: candidate),
+            CandidateProfilePage(candidateId: candidate['id']),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,

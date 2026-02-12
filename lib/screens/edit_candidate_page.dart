@@ -2,17 +2,25 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+
 
 class EditCandidatePage extends StatefulWidget {
-  final Map<String, dynamic> candidate;
+  final int candidateId;
 
-  const EditCandidatePage({Key? key, required this.candidate}) : super(key: key);
+  const EditCandidatePage({Key? key, required this.candidateId})
+      : super(key: key);
 
   @override
   State<EditCandidatePage> createState() => _EditCandidatePageState();
 }
 
 class _EditCandidatePageState extends State<EditCandidatePage> {
+  Map<String, dynamic>? candidate;
+  bool isLoading = true;
+
   late TextEditingController nameController;
   late TextEditingController partyController;
   late TextEditingController descriptionController;
@@ -34,40 +42,88 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
   @override
   void initState() {
     super.initState();
-    _initializeControllers();
+    _fetchCandidateDetails();   // ✅ ONLY THIS
   }
+
+  Future<void> _fetchCandidateDetails() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse(
+          "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/candidate/details/${widget.candidateId}"),
+      headers: {
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      candidate = jsonDecode(response.body);
+      _initializeControllers();  // ✅ initialize AFTER data
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
 
   void _initializeControllers() {
-    nameController = TextEditingController(text: widget.candidate['name']);
-    partyController = TextEditingController(text: widget.candidate['party']);
-    descriptionController =
-        TextEditingController(text: widget.candidate['description']);
-    ageController = TextEditingController(text: widget.candidate['age'] ?? '');
-    constituencyController =
-        TextEditingController(text: widget.candidate['constituency'] ?? '');
-    voterIdController =
-        TextEditingController(text: widget.candidate['voterId'] ?? '');
-    aadhaarController =
-        TextEditingController(text: widget.candidate['aadhaar'] ?? '');
-    phoneController = TextEditingController(text: widget.candidate['phone'] ?? '');
-    emailController = TextEditingController(text: widget.candidate['email'] ?? '');
-    gender = widget.candidate['gender'];
+    nameController = TextEditingController(
+      text:
+      "${candidate!['first_name'] ?? ''} ${candidate!['last_name'] ?? ''}"
+          .trim(),
+    );
 
-    final controllers = [
-      nameController,
-      partyController,
-      descriptionController,
-      ageController,
-      constituencyController,
-      voterIdController,
-      aadhaarController,
-      phoneController,
-      emailController,
-    ];
-    for (var controller in controllers) {
-      controller.addListener(() => setState(() => _hasChanges = true));
+    partyController =
+        TextEditingController(text: candidate!['party'] ?? '');
+
+    descriptionController =
+        TextEditingController(text: candidate!['description'] ?? '');
+
+    ageController =
+        TextEditingController(text: candidate!['age']?.toString() ?? '');
+
+    // 🔥 Municipal vs Assembly
+    if (candidate!['election_type']
+        ?.toString()
+        .toLowerCase()
+        .contains("municipal") ==
+        true) {
+      constituencyController =
+          TextEditingController(text: candidate!['ward_name'] ?? '');
+    } else {
+      constituencyController =
+          TextEditingController(text: candidate!['constituency'] ?? '');
     }
+
+    voterIdController =
+        TextEditingController(text: candidate!['voter_id'] ?? '');
+
+    aadhaarController =
+        TextEditingController(text: candidate!['gov_id_no'] ?? '');
+
+    phoneController =
+        TextEditingController(text: candidate!['phone'] ?? '');
+
+    emailController =
+        TextEditingController(text: candidate!['email'] ?? '');
+
+    String? rawGender = candidate!['gender'];
+
+    if (rawGender == 'M') {
+      gender = 'Male';
+    } else if (rawGender == 'F') {
+      gender = 'Female';
+    } else if (rawGender == 'O') {
+      gender = 'Other';
+    } else {
+      gender = null;
+    }
+
   }
+
+
 
   @override
   void dispose() {
@@ -150,61 +206,120 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
     );
   }
 
-  void _updateCandidate() {
+  Future<void> _updateCandidate() async {
     if (!_validateForm()) return;
 
     setState(() => _isSubmitting = true);
 
     try {
-      String? candidateBase64 = widget.candidate['image'];
-      String? symbolBase64 = widget.candidate['symbol'];
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
 
+      var request = http.MultipartRequest(
+        "PUT",
+        Uri.parse(
+            "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/candidate/update/${candidate!['id']}"),
+      );
+
+      request.headers['Authorization'] = "Bearer $token";
+
+      // 🔹 Split first & last name (backend expects separately)
+      final fullName = nameController.text.trim().split(" ");
+      request.fields['first_name'] = fullName.first;
+      request.fields['last_name'] =
+      fullName.length > 1 ? fullName.sublist(1).join(" ") : "";
+
+      request.fields['party'] = partyController.text.trim();
+      request.fields['age'] = ageController.text.trim();
+      String dbGender = '';
+
+      if (gender == 'Male') {
+        dbGender = 'M';
+      } else if (gender == 'Female') {
+        dbGender = 'F';
+      } else if (gender == 'Other') {
+        dbGender = 'O';
+      }
+
+      request.fields['gender'] = dbGender;
+
+      request.fields['phone'] = phoneController.text.trim();
+      request.fields['email'] = emailController.text.trim();
+
+      // 🔹 Image upload (only if changed)
       if (candidatePhoto != null) {
-        candidateBase64 = base64Encode(candidatePhoto!.readAsBytesSync());
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            "candidate_photo",
+            candidatePhoto!.path,
+          ),
+        );
       }
 
       if (symbolPhoto != null) {
-        symbolBase64 = base64Encode(symbolPhoto!.readAsBytesSync());
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            "party_symbol",
+            symbolPhoto!.path,
+          ),
+        );
       }
 
-      Navigator.pop(context, {
-        'name': nameController.text.trim(),
-        'party': partyController.text.trim(),
-        'description': descriptionController.text.trim(),
-        'age': ageController.text.trim(),
-        'gender': gender,
-        'constituency': constituencyController.text.trim(),
-        'voterId': voterIdController.text,
-        'aadhaar': aadhaarController.text,
-        'phone': phoneController.text.trim(),
-        'email': emailController.text.trim(),
-        'image': candidateBase64,
-        'symbol': symbolBase64,
-      });
+      final response = await request.send();
+
+      final responseData =
+      await response.stream.bytesToString();
+
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Candidate updated successfully"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        Navigator.pop(context, true); // trigger refresh
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Update failed: $responseData"),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     } catch (e) {
-      setState(() => _isSubmitting = false);
-      debugPrint('Error updating candidate: $e');
-      _showError('Error updating candidate');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Server error"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+
+    setState(() => _isSubmitting = false);
   }
+
 
   Widget _buildPhotoSelector({
     required String title,
     required IconData icon,
     required File? selectedFile,
-    required String? base64Data,
+    required String? imageUrl,
     required VoidCallback onTap,
     required bool isCircle,
   }) {
     ImageProvider? displayImage;
+
     if (selectedFile != null) {
       displayImage = FileImage(selectedFile);
-    } else if (base64Data != null && base64Data.isNotEmpty) {
-      try {
-        displayImage = MemoryImage(base64Decode(base64Data));
-      } catch (e) {
-        debugPrint('Error decoding image: $e');
-      }
+    } else if (imageUrl != null && imageUrl.isNotEmpty) {
+      displayImage = NetworkImage(imageUrl);
     }
 
     return Column(
@@ -215,7 +330,6 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 15,
-            letterSpacing: 0.3,
           ),
         ),
         const SizedBox(height: 12),
@@ -234,24 +348,14 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
                   width: 2,
                 ),
                 image: displayImage != null
-                    ? DecorationImage(image: displayImage, fit: BoxFit.cover)
+                    ? DecorationImage(
+                  image: displayImage,
+                  fit: BoxFit.cover,
+                )
                     : null,
               ),
               child: displayImage == null
-                  ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 48, color: Colors.blue.shade700),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Tap to change',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
-                ],
-              )
+                  ? Icon(icon, size: 48, color: Colors.blue.shade700)
                   : null,
             ),
           ),
@@ -259,6 +363,7 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
       ],
     );
   }
+
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -308,8 +413,21 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = Colors.blue.shade700;
 
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (candidate == null) {
+      return const Scaffold(
+        body: Center(child: Text("Candidate not found")),
+      );
+    }
+
+    final themeColor = Colors.blue.shade700;
+    final isLocked = candidate!['nomination_status'] == "approved";
     return WillPopScope(
       onWillPop: () async {
         if (_hasChanges) {
@@ -363,7 +481,7 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
                     title: "Candidate Photo",
                     icon: Icons.person,
                     selectedFile: candidatePhoto,
-                    base64Data: widget.candidate['image'],
+                    imageUrl: candidate!['candidate_photo_url'],
                     onTap: () => _pickImage(true),
                     isCircle: true,
                   ),
@@ -372,7 +490,7 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
                     title: "Party Symbol",
                     icon: Icons.flag,
                     selectedFile: symbolPhoto,
-                    base64Data: widget.candidate['symbol'],
+                    imageUrl: candidate!['party_symbol_url'],
                     onTap: () => _pickImage(false),
                     isCircle: false,
                   ),
@@ -450,10 +568,19 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
                     icon: Icons.flag,
                   ),
                   const SizedBox(height: 16),
-                  _buildTextField(
+                  TextField(
                     controller: constituencyController,
-                    label: 'Constituency',
-                    icon: Icons.location_city,
+                    readOnly: true,
+                    enableInteractiveSelection: false,
+                    decoration: _inputDecoration(
+                      candidate!['election_type']
+                          ?.toString()
+                          .toLowerCase()
+                          .contains("municipal") == true
+                          ? 'Ward'
+                          : 'Constituency',
+                      Icons.location_city,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -494,9 +621,19 @@ class _EditCandidatePageState extends State<EditCandidatePage> {
                         ),
                         elevation: 5,
                       ),
-                      onPressed: _isSubmitting ? null : _updateCandidate,
+                      onPressed: (_isSubmitting || isLocked) ? null : _updateCandidate,
                     ),
+
                   ),
+                  if (isLocked)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        "This candidate is approved and cannot be edited.",
+                        style: TextStyle(color: Colors.red.shade700),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   const SizedBox(height: 20),
                 ],
               ),
