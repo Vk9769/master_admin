@@ -25,21 +25,34 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
   List<Map<String, dynamic>> _elections = [];
   int? _selectedElectionId;
 
+  int _totalCount = 0;
+  int _approvedCount = 0;
+  int _pendingCount = 0;
+  int _rejectedCount = 0;
+
+  String _selectedFilter = "all";
+  List<Map<String, dynamic>> _filteredCandidates = [];
+
   @override
   void initState() {
     super.initState();
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
+
     _loadAdminData();
-    _loadCandidates();
     _loadElections();
+
+    _isLoading = false; // 🔥 Important
   }
+
 
   @override
   void dispose() {
@@ -73,6 +86,8 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       setState(() {
         _elections = List<Map<String, dynamic>>.from(data);
       });
+
+
     }
   }
 
@@ -85,7 +100,9 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
 
       // 🔥 Replace with selected election id
       if (_selectedElectionId == null) return;
-
+      setState(() {
+        _isLoading = true;
+      });
       int electionId = _selectedElectionId!;
 
 
@@ -102,17 +119,62 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
 
         setState(() {
           _candidates = List<Map<String, dynamic>>.from(data);
+          _applyFilter();
           _isLoading = false;
         });
 
-        _fadeController.forward();
-        _slideController.forward();
-      } else {
+        await _loadCounts(); // 🔥 ADD THIS
+        _fadeController.forward(from: 0);
+        _slideController.forward(from: 0);
+      }
+      else {
         setState(() => _isLoading = false);
       }
     } catch (e) {
       setState(() => _isLoading = false);
       debugPrint("Error loading candidates: $e");
+    }
+  }
+  Future<void> _loadCounts() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+
+      if (_selectedElectionId == null) return;
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/candidate/counts/$_selectedElectionId"),
+        headers: {
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (!mounted) return;
+
+        setState(() {
+          _totalCount = data['total'] ?? 0;
+          _approvedCount = data['approved'] ?? 0;
+          _pendingCount = data['pending'] ?? 0;
+          _rejectedCount = data['rejected'] ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Count load error: $e");
+    }
+  }
+  void _applyFilter() {
+    if (_selectedFilter == "all") {
+      _filteredCandidates = _candidates;
+    } else {
+      _filteredCandidates = _candidates.where((c) {
+        return (c['nomination_status'] ?? "pending")
+            .toString()
+            .toLowerCase() ==
+            _selectedFilter;
+      }).toList();
     }
   }
 
@@ -473,6 +535,55 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       ),
     );
   }
+  Widget _buildFilterChip(
+      String label,
+      String value,
+      int count,
+      Color color,
+      ) {
+    final bool isSelected = _selectedFilter == value;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = value;
+          _applyFilter();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(width: 6),
+            CircleAvatar(
+              radius: 10,
+              backgroundColor: isSelected ? Colors.white : color,
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? color : Colors.white,
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -523,6 +634,19 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
               ),
             ),
           ),
+          if (_selectedElectionId != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildFilterChip("All", "all", _totalCount, Colors.blue),
+                  _buildFilterChip("Approved", "approved", _approvedCount, Colors.green),
+                  _buildFilterChip("Pending", "pending", _pendingCount, Colors.orange),
+                  _buildFilterChip("Rejected", "rejected", _rejectedCount, Colors.red),
+                ],
+              ),
+            ),
 
           // 🔥 MAIN CONTENT
           Expanded(
@@ -589,10 +713,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                   color: Colors.blue.shade700,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    itemCount: _candidates.length,
+                    itemCount: _filteredCandidates.length,
                     itemBuilder: (context, index) =>
-                        _buildCandidateCard(
-                            _candidates[index], index),
+                        _buildCandidateCard(_filteredCandidates[index], index),
+
                   ),
                 ),
               ),
