@@ -848,7 +848,8 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.blue.shade700,
         elevation: 5,
-        onPressed: _selectedElectionId == null ? null : _navigateToAddAgent,
+        onPressed: _navigateToAddAgent,
+
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Add Agent',

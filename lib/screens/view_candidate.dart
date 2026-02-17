@@ -53,7 +53,6 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     _isLoading = false; // 🔥 Important
   }
 
-
   @override
   void dispose() {
     _fadeController.dispose();
@@ -71,6 +70,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       debugPrint('Error loading admin data: $e');
     }
   }
+
   Future<void> _loadElections() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
@@ -86,8 +86,6 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       setState(() {
         _elections = List<Map<String, dynamic>>.from(data);
       });
-
-
     }
   }
 
@@ -105,13 +103,9 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       });
       int electionId = _selectedElectionId!;
 
-
-
       final response = await http.get(
         Uri.parse("$baseUrl/candidate/list/$electionId"),
-        headers: {
-          "Authorization": "Bearer $token",
-        },
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
@@ -126,8 +120,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         await _loadCounts(); // 🔥 ADD THIS
         _fadeController.forward(from: 0);
         _slideController.forward(from: 0);
-      }
-      else {
+      } else {
         setState(() => _isLoading = false);
       }
     } catch (e) {
@@ -135,6 +128,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       debugPrint("Error loading candidates: $e");
     }
   }
+
   Future<void> _loadCounts() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -144,9 +138,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
 
       final response = await http.get(
         Uri.parse("$baseUrl/candidate/counts/$_selectedElectionId"),
-        headers: {
-          "Authorization": "Bearer $token",
-        },
+        headers: {"Authorization": "Bearer $token"},
       );
 
       if (response.statusCode == 200) {
@@ -165,19 +157,17 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       debugPrint("Count load error: $e");
     }
   }
+
   void _applyFilter() {
     if (_selectedFilter == "all") {
       _filteredCandidates = _candidates;
     } else {
       _filteredCandidates = _candidates.where((c) {
-        return (c['nomination_status'] ?? "pending")
-            .toString()
-            .toLowerCase() ==
+        return (c['nomination_status'] ?? "pending").toString().toLowerCase() ==
             _selectedFilter;
       }).toList();
     }
   }
-
 
   Future<void> _saveCandidates() async {
     try {
@@ -240,10 +230,13 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.white,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          insetPadding:
-          const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 30,
+            vertical: 24,
+          ),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -261,8 +254,11 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                         color: Colors.red.shade50,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.delete_forever,
-                          color: Colors.red.shade700, size: 45),
+                      child: Icon(
+                        Icons.delete_forever,
+                        color: Colors.red.shade700,
+                        size: 45,
+                      ),
                     ),
                   ),
                 ),
@@ -279,10 +275,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                 Text(
                   'Are you sure you want to remove $candidateName?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey.shade700,
-                  ),
+                  style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
                 ),
                 const SizedBox(height: 25),
                 Row(
@@ -296,14 +289,15 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         onPressed: () => Navigator.pop(context),
                         child: const Text(
                           'Cancel',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -316,23 +310,21 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding:
-                          const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                         onPressed: () async {
                           Navigator.pop(context);
 
                           try {
                             SharedPreferences prefs =
-                            await SharedPreferences.getInstance();
+                                await SharedPreferences.getInstance();
                             final token = prefs.getString("token");
 
                             final response = await http.delete(
                               Uri.parse(
-                                  "$baseUrl/candidate/delete/$candidateId"),
-                              headers: {
-                                "Authorization": "Bearer $token",
-                              },
+                                "$baseUrl/candidate/delete/$candidateId",
+                              ),
+                              headers: {"Authorization": "Bearer $token"},
                             );
 
                             if (response.statusCode == 200) {
@@ -343,15 +335,15 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                      "$candidateName deleted successfully"),
+                                    "$candidateName deleted successfully",
+                                  ),
                                   backgroundColor: Colors.red.shade700,
                                 ),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content:
-                                  const Text("Delete failed"),
+                                  content: const Text("Delete failed"),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -359,8 +351,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content:
-                                const Text("Server error"),
+                                content: const Text("Server error"),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -369,7 +360,9 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                         child: const Text(
                           'Delete',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
@@ -383,18 +376,19 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     );
   }
 
-
   void _navigateToAddCandidate() async {
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-        const AddCandidatePage(),
+            const AddCandidatePage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
-              Tween(begin: const Offset(1, 0), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeInOutCubic)),
+              Tween(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).chain(CurveTween(curve: Curves.easeInOutCubic)),
             ),
             child: child,
           );
@@ -405,7 +399,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     _loadCandidates(); // 🔥 Refresh from backend
   }
 
-  void _navigateToEditCandidate(Map<String, dynamic> candidate, int index) async {
+  void _navigateToEditCandidate(
+    Map<String, dynamic> candidate,
+    int index,
+  ) async {
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
@@ -414,8 +411,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
-              Tween(begin: const Offset(1, 0), end: Offset.zero)
-                  .chain(CurveTween(curve: Curves.easeInOutCubic)),
+              Tween(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).chain(CurveTween(curve: Curves.easeInOutCubic)),
             ),
             child: child,
           );
@@ -436,8 +435,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
             opacity: animation,
             child: SlideTransition(
               position: animation.drive(
-                Tween(begin: const Offset(0, 0.1), end: Offset.zero)
-                    .chain(CurveTween(curve: Curves.easeInOutCubic)),
+                Tween(
+                  begin: const Offset(0, 0.1),
+                  end: Offset.zero,
+                ).chain(CurveTween(curve: Curves.easeInOutCubic)),
               ),
               child: child,
             ),
@@ -447,14 +448,12 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
     );
   }
 
-  Widget _buildCandidateCard(
-      Map<String, dynamic> candidate, int index) {
+  Widget _buildCandidateCard(Map<String, dynamic> candidate, int index) {
     ImageProvider? displayImage;
 
     if (candidate['candidate_photo_url'] != null) {
       displayImage = NetworkImage(candidate['candidate_photo_url']);
-    }
-    else if (candidate['image'] != null && candidate['image'].isNotEmpty) {
+    } else if (candidate['image'] != null && candidate['image'].isNotEmpty) {
       displayImage = MemoryImage(base64Decode(candidate['image']));
     }
 
@@ -464,7 +463,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       shadowColor: Colors.blue.withOpacity(0.3),
       margin: const EdgeInsets.symmetric(vertical: 10),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 16,
+        ),
         leading: Hero(
           tag: "candidate_${candidate['id']}",
           child: CircleAvatar(
@@ -500,7 +502,9 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
         onTap: () => _viewCandidateDetails(candidate),
         trailing: PopupMenuButton<String>(
           color: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           icon: Icon(Icons.more_vert, color: Colors.blue.shade700),
           onSelected: (value) {
             if (value == 'edit') {
@@ -535,12 +539,8 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       ),
     );
   }
-  Widget _buildFilterChip(
-      String label,
-      String value,
-      int count,
-      Color color,
-      ) {
+
+  Widget _buildFilterChip(String label, String value, int count, Color color) {
     final bool isSelected = _selectedFilter == value;
 
     return GestureDetector(
@@ -578,7 +578,7 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                   color: isSelected ? color : Colors.white,
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -604,7 +604,6 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
       ),
       body: Column(
         children: [
-
           // 🔥 ELECTION DROPDOWN SECTION
           Container(
             padding: const EdgeInsets.all(16),
@@ -625,7 +624,10 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
               },
               decoration: InputDecoration(
                 labelText: "Select Election",
-                prefixIcon: Icon(Icons.how_to_vote, color: Colors.blue.shade700),
+                prefixIcon: Icon(
+                  Icons.how_to_vote,
+                  color: Colors.blue.shade700,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -641,9 +643,24 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildFilterChip("All", "all", _totalCount, Colors.blue),
-                  _buildFilterChip("Approved", "approved", _approvedCount, Colors.green),
-                  _buildFilterChip("Pending", "pending", _pendingCount, Colors.orange),
-                  _buildFilterChip("Rejected", "rejected", _rejectedCount, Colors.red),
+                  _buildFilterChip(
+                    "Approved",
+                    "approved",
+                    _approvedCount,
+                    Colors.green,
+                  ),
+                  _buildFilterChip(
+                    "Pending",
+                    "pending",
+                    _pendingCount,
+                    Colors.orange,
+                  ),
+                  _buildFilterChip(
+                    "Rejected",
+                    "rejected",
+                    _rejectedCount,
+                    Colors.red,
+                  ),
                 ],
               ),
             ),
@@ -652,91 +669,85 @@ class _AdminCandidatesPageState extends State<AdminCandidatesPage>
           Expanded(
             child: _isLoading
                 ? Center(
-              child: CircularProgressIndicator(
-                color: Colors.blue.shade700,
-              ),
-            )
+                    child: CircularProgressIndicator(
+                      color: Colors.blue.shade700,
+                    ),
+                  )
                 : _selectedElectionId == null
                 ? Center(
-              child: Text(
-                "Please select an election",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-            )
+                    child: Text(
+                      "Please select an election",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  )
                 : _candidates.isEmpty
                 ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.people_outline,
-                      size: 80,
-                      color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No Candidates Yet',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey.shade600,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 80,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No Candidates Yet',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add your first candidate to get started',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add your first candidate to get started',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-            )
+                  )
                 : FadeTransition(
-              opacity: _fadeController,
-              child: SlideTransition(
-                position: _slideController.drive(
-                  Tween(
-                    begin: const Offset(0, 0.1),
-                    end: Offset.zero,
-                  ).chain(
-                    CurveTween(
-                      curve: Curves.easeInOutCubic,
+                    opacity: _fadeController,
+                    child: SlideTransition(
+                      position: _slideController.drive(
+                        Tween(
+                          begin: const Offset(0, 0.1),
+                          end: Offset.zero,
+                        ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+                      ),
+                      child: RefreshIndicator(
+                        onRefresh: _loadCandidates,
+                        backgroundColor: Colors.white,
+                        color: Colors.blue.shade700,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _filteredCandidates.length,
+                          itemBuilder: (context, index) => _buildCandidateCard(
+                            _filteredCandidates[index],
+                            index,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                child: RefreshIndicator(
-                  onRefresh: _loadCandidates,
-                  backgroundColor: Colors.white,
-                  color: Colors.blue.shade700,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _filteredCandidates.length,
-                    itemBuilder: (context, index) =>
-                        _buildCandidateCard(_filteredCandidates[index], index),
-
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.blue.shade700,
         elevation: 5,
-        onPressed: _selectedElectionId == null
-            ? null
-            : _navigateToAddCandidate,
+        onPressed: _navigateToAddCandidate,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Add Candidate',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );
