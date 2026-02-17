@@ -559,853 +559,928 @@ class _AddAgentPageState extends State<AddAgentPage> {
         backgroundColor: primary,
         centerTitle: true,
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              onChanged: () => setState(() {}),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop = constraints.maxWidth > 900;
+          final isTablet =
+              constraints.maxWidth > 600 && constraints.maxWidth <= 900;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isDesktop
+                    ? 1100 // PC width
+                    : isTablet
+                    ? 700 // Tablet width
+                    : double.infinity,
+              ),
+              child: Stack(
                 children: [
-                  // 🗳️ Election Selection (TOP)
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      onChanged: () => setState(() {}),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            'Election Area Selection',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          // 🗳️ Election Selection (TOP)
+                          Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // SELECT ELECTION
-                          DropdownButtonFormField<String>(
-                            value: _selectedElectionId,
-                            items: _elections.map((e) {
-                              return DropdownMenuItem(
-                                value: e['id'].toString(),
-                                child: Text(e['election_name']),
-                              );
-                            }).toList(),
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedElectionId = v;
-
-                                // reset cascading
-                                _selectedAreaType = null;
-                                _selectedAC = null;
-                                _selectedWard = null;
-                              });
-                            },
-                            decoration: const InputDecoration(
-                              labelText: "Select Election",
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) =>
-                                v == null ? 'Select election' : null,
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // AREA TYPE
-                          if (_selectedElectionId != null)
-                            DropdownButtonFormField<String>(
-                              value: _selectedAreaType,
-                              items: _areaTypes.map((t) {
-                                return DropdownMenuItem(
-                                  value: t,
-                                  child: Text(t),
-                                );
-                              }).toList(),
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedAreaType = v;
-                                });
-
-                                if (v == "WARD") {
-                                  _loadWards();
-                                }
-                              },
-
-                              decoration: const InputDecoration(
-                                labelText: "Select Area Type",
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) =>
-                                  _selectedElectionId != null && v == null
-                                  ? 'Select area type'
-                                  : null,
-                            ),
-
-                          const SizedBox(height: 12),
-
-                          // WARD LIST
-                          if (_selectedAreaType == 'WARD')
-                            DropdownButtonFormField<String>(
-                              value: _selectedWard,
-                              items: _wardList.map((w) {
-                                final parts = w.split("|");
-                                return DropdownMenuItem(
-                                  value: parts[0], // send ward_id
-                                  child: Text(parts[1]),
-                                );
-                              }).toList(),
-
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedWard = v;
-                                  _selectedPart = null;
-                                });
-
-                                _loadWardBooths(); // ✅ LOAD WARD BOOTHS HERE
-                              },
-
-                              decoration: const InputDecoration(
-                                labelText: "Select Ward",
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) =>
-                                  _selectedAreaType == 'WARD' && v == null
-                                  ? 'Select Ward'
-                                  : null,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 🔍 VOTER SEARCH CARD
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Search Voter by Voter ID',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          TextFormField(
-                            controller: _voterIdCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'Voter ID',
-                              prefixIcon: Icon(
-                                Icons.how_to_vote,
-                                color: Colors.blue,
-                              ),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.icon(
-                              onPressed: _searchingVoter
-                                  ? null
-                                  : _searchByVoterId,
-                              icon: const Icon(Icons.search),
-                              label: Text(
-                                _searchingVoter ? 'Searching...' : 'Search',
-                              ),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          if (_voterFetched)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 8),
-                              child: Text(
-                                '✔ Voter exists. Photo will not be changed.',
-                                style: TextStyle(color: Colors.green),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Profile Photo Card
-                  Card(
-                    color: Colors.white,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 36,
-                            backgroundColor: Colors.grey[300],
-                            backgroundImage: _agentProfileImageProvider(),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              'Profile Photo',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: textPrimary,
-                                  ),
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            icon: const Icon(
-                              Icons.photo_library,
-                              color: primary,
-                            ),
-                            label: const Text(
-                              'Choose',
-                              style: TextStyle(color: primary),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(
-                                color: primary,
-                                width: 1.25,
-                              ),
-                            ),
-                            onPressed: _voterFetched ? null : _pickImage,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Form Fields Card
-                  Card(
-                    color: Colors.white,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          // Name fields
-                          TextFormField(
-                            controller: _firstNameCtrl,
-                            enabled: !_voterFetched,
-
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'First Name',
-                              prefixIcon: Icon(Icons.badge, color: primary),
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'First name is required';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _lastNameCtrl,
-                            enabled: !_voterFetched,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'Last Name',
-                              prefixIcon: Icon(
-                                Icons.badge_outlined,
-                                color: primary,
-                              ),
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'Last name is required';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // ✅ Voter ID Field
-                          TextFormField(
-                            controller: _voterIdCtrl,
-                            enabled: !_voterFetched,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              labelText: 'Voter ID Number',
-                              prefixIcon: Icon(
-                                Icons.how_to_vote,
-                                color: primary,
-                              ),
-                              border: OutlineInputBorder(),
-                              hintText: 'e.g., XYZ1234567',
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'Voter ID is required';
-                              if (v.trim().length < 7)
-                                return 'Invalid Voter ID';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Aadhaar Number
-                          TextFormField(
-                            controller: _idNumberCtrl,
-                            enabled: !_voterFetched,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(12),
-                            ],
-                            decoration: const InputDecoration(
-                              labelText: 'Aadhaar Number',
-                              prefixIcon: Icon(
-                                Icons.credit_card,
-                                color: primary,
-                              ),
-                              border: OutlineInputBorder(),
-                              hintText: '12-digit Aadhaar number',
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'Aadhaar number is required';
-                              if (!RegExp(r'^\d{12}$').hasMatch(v.trim()))
-                                return 'Enter valid 12-digit Aadhaar';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Email
-                          TextFormField(
-                            controller: _emailCtrl,
-                            textInputAction: TextInputAction.next,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email, color: primary),
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'Email is required';
-                              if (!_validateEmail(v))
-                                return 'Enter a valid email';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Password
-                          TextFormField(
-                            controller: _passwordCtrl,
-                            enabled: !_voterFetched,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.next,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: const Icon(
-                                Icons.lock,
-                                color: primary,
-                              ),
-                              border: const OutlineInputBorder(),
-                              suffixIcon: IconButton(
-                                onPressed: _togglePassword,
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility
-                                      : Icons.visibility_off,
-                                  color: primary,
-                                ),
-                              ),
-                            ),
-                            validator: (v) {
-                              if (_voterFetched)
-                                return null; // 🔥 THIS IS THE FIX
-                              if (v == null || v.trim().isEmpty)
-                                return 'Password is required';
-                              if (v.trim().length < 6)
-                                return 'Minimum 6 characters';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Phone
-                          TextFormField(
-                            controller: _phoneCtrl,
-                            textInputAction: TextInputAction.done,
-                            keyboardType: TextInputType.phone,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9+\-\s]'),
-                              ),
-                            ],
-                            decoration: const InputDecoration(
-                              labelText: 'Phone',
-                              prefixIcon: Icon(Icons.phone, color: primary),
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) {
-                              if (_voterFetched) return null;
-                              if (v == null || v.trim().isEmpty)
-                                return 'Phone is required';
-                              if (!_validatePhone(v))
-                                return 'Enter a valid phone';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          const SizedBox(height: 12),
-
-                          // Gender Dropdown
-                          DropdownButtonFormField<String>(
-                            value: _genders.contains(_selectedGender)
-                                ? _selectedGender
-                                : null,
-                            decoration: const InputDecoration(
-                              labelText: 'Gender',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: _genders
-                                .map(
-                                  (g) => DropdownMenuItem(
-                                    value: g,
-                                    child: Text(g),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedGender = v),
-                            validator: (v) =>
-                                v == null ? 'Please select gender' : null,
-                          ),
-                          const SizedBox(height: 12),
-
-                          // DOB Picker
-                          TextFormField(
-                            controller: _dobCtrl,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Date of Birth',
-                              prefixIcon: Icon(
-                                Icons.calendar_today,
-                                color: Colors.blue,
-                              ),
-                              border: OutlineInputBorder(),
-                              hintText: 'Select Date',
-                            ),
-                            onTap: () async {
-                              DateTime? pickedDate = await showDatePicker(
-                                context: context,
-                                initialDate: DateTime(1990, 1, 1),
-                                firstDate: DateTime(1900),
-                                lastDate: DateTime.now(),
-                              );
-                              if (pickedDate != null) {
-                                _dobCtrl.text =
-                                    "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
-                                setState(() {});
-                              }
-                            },
-                            validator: (v) => v == null || v.isEmpty
-                                ? 'Please select date of birth'
-                                : null,
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // Address
-                          TextFormField(
-                            controller: _addressCtrl,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              labelText: 'Address',
-                              prefixIcon: Icon(
-                                Icons.location_city,
-                                color: Colors.blue,
-                              ),
-                              border: OutlineInputBorder(),
-                              hintText: 'Enter full address',
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty
-                                ? 'Address is required'
-                                : null,
-                          ),
-
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Location Card
-                  Card(
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          // CARD TITLE
-                          Row(
-                            children: const [
-                              Icon(Icons.assignment_ind, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text(
-                                'Role & Booth Assignment',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 6),
-
-                          const Text(
-                            'Please select role and exact polling location carefully',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-                          // SELECT ROLE
-                          ListTile(
-                            leading: const Icon(
-                              Icons.security,
-                              color: Colors.blue,
-                            ),
-                            title: const Text("Role"),
-                            subtitle: const Text("Agent (Part Level)"),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          DropdownButtonFormField<String>(
-                            value: _selectedElectionId,
-                            items: _elections.map((e) {
-                              return DropdownMenuItem(
-                                value: e['id'].toString(),
-                                child: Text(e['election_name']),
-                              );
-                            }).toList(),
-                            onChanged: null,
-                            decoration: const InputDecoration(
-                              labelText: "Select Election",
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) =>
-                                v == null ? 'Select election' : null,
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // 🏛️ ONLY FOR ASSEMBLY
-                          if (_selectedAreaType == "AC") ...[
-                            const SizedBox(height: 16),
-                            // STATE
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(safeKeyFromList(_states, 'state')),
-                              // ✅ ADD HERE
-                              value: safeDropdownValue(_states, _selectedState),
-                              items: _states
-                                  .map(
-                                    (s) => DropdownMenuItem(
-                                      value: s,
-                                      child: Text(s),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Election Area Selection',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedState = v;
-                                  _districts = locationHierarchy[v]!.keys
-                                      .toList();
-                                  _selectedDistrict = null;
-                                  _assemblies = [];
-                                  _selectedAssembly = null;
-                                  _parts = [];
-                                  _selectedPart = null;
-                                });
-                              },
-                              decoration: const InputDecoration(
-                                labelText: "Select State",
-                                border: OutlineInputBorder(),
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  // SELECT ELECTION
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedElectionId,
+                                    items: _elections.map((e) {
+                                      return DropdownMenuItem(
+                                        value: e['id'].toString(),
+                                        child: Text(e['election_name']),
+                                      );
+                                    }).toList(),
+                                    onChanged: (v) {
+                                      setState(() {
+                                        _selectedElectionId = v;
+
+                                        // reset cascading
+                                        _selectedAreaType = null;
+                                        _selectedAC = null;
+                                        _selectedWard = null;
+                                      });
+                                    },
+                                    decoration: const InputDecoration(
+                                      labelText: "Select Election",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    validator: (v) =>
+                                        v == null ? 'Select election' : null,
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  // AREA TYPE
+                                  if (_selectedElectionId != null)
+                                    DropdownButtonFormField<String>(
+                                      value: _selectedAreaType,
+                                      items: _areaTypes.map((t) {
+                                        return DropdownMenuItem(
+                                          value: t,
+                                          child: Text(t),
+                                        );
+                                      }).toList(),
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _selectedAreaType = v;
+                                        });
+
+                                        if (v == "WARD") {
+                                          _loadWards();
+                                        }
+                                      },
+
+                                      decoration: const InputDecoration(
+                                        labelText: "Select Area Type",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (v) =>
+                                          _selectedElectionId != null &&
+                                              v == null
+                                          ? 'Select area type'
+                                          : null,
+                                    ),
+
+                                  const SizedBox(height: 12),
+
+                                  // WARD LIST
+                                  if (_selectedAreaType == 'WARD')
+                                    DropdownButtonFormField<String>(
+                                      value: _selectedWard,
+                                      items: _wardList.map((w) {
+                                        final parts = w.split("|");
+                                        return DropdownMenuItem(
+                                          value: parts[0], // send ward_id
+                                          child: Text(parts[1]),
+                                        );
+                                      }).toList(),
+
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _selectedWard = v;
+                                          _selectedPart = null;
+                                        });
+
+                                        _loadWardBooths(); // ✅ LOAD WARD BOOTHS HERE
+                                      },
+
+                                      decoration: const InputDecoration(
+                                        labelText: "Select Ward",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (v) =>
+                                          _selectedAreaType == 'WARD' &&
+                                              v == null
+                                          ? 'Select Ward'
+                                          : null,
+                                    ),
+                                ],
                               ),
                             ),
+                          ),
 
-                            const SizedBox(height: 16),
-
-                            // DISTRICT
-                            if (_selectedState != null)
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  safeKeyFromList(_districts, 'district'),
-                                ),
-                                value: safeDropdownValue(
-                                  _districts,
-                                  _selectedDistrict,
-                                ),
-                                items: _districts
-                                    .map(
-                                      (d) => DropdownMenuItem(
-                                        value: d,
-                                        child: Text(d),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) {
-                                  setState(() {
-                                    _selectedDistrict = v;
-                                    _assemblies =
-                                        locationHierarchy[_selectedState]![v]!
-                                            .keys
-                                            .toList();
-                                    _selectedAssembly = null;
-                                    _parts = [];
-                                    _selectedPart = null;
-                                  });
-                                },
-                                decoration: const InputDecoration(
-                                  labelText: "Select District",
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-
-                            const SizedBox(height: 16),
-
-                            // ASSEMBLY
-                            if (_selectedDistrict != null)
-                              DropdownButtonFormField<String>(
-                                key: ValueKey(
-                                  safeKeyFromList(_assemblies, 'assembly'),
-                                ),
-                                // ✅ ADD HERE
-                                value: safeDropdownValue(
-                                  _assemblies,
-                                  _selectedAssembly,
-                                ),
-                                items: _assemblies
-                                    .map(
-                                      (a) => DropdownMenuItem(
-                                        value: a,
-                                        child: Text(a),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) {
-                                  setState(() {
-                                    _selectedAssembly = v;
-                                    _parts = List<Map<String, dynamic>>.from(
-                                      locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
-                                    );
-                                    _selectedPart = null;
-                                  });
-                                },
-
-                                decoration: const InputDecoration(
-                                  labelText: "Select Assembly Constituency",
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                          ],
                           const SizedBox(height: 16),
 
-                          // 🏘️ MUNICIPAL – WARD BOOTHS
-                          if (_selectedAreaType == "WARD" &&
-                              _selectedWard != null)
-                            DropdownButtonFormField<String>(
-                              value:
-                                  _wardBooths.any(
-                                    (b) =>
-                                        b['booth_id'].toString() ==
-                                        _selectedPart,
-                                  )
-                                  ? _selectedPart
-                                  : null,
-                              items: _wardBooths.map((b) {
-                                return DropdownMenuItem<String>(
-                                  value: b['booth_id'].toString(),
-                                  child: Text(b['name']),
-                                );
-                              }).toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
-                              decoration: const InputDecoration(
-                                labelText: "Select Ward Booth",
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) =>
-                                  _selectedAreaType == "WARD" && v == null
-                                  ? "Select booth"
-                                  : null,
+                          // 🔍 VOTER SEARCH CARD
+                          Card(
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
                             ),
-
-                          // 🏛️ ASSEMBLY – OLD HIERARCHY
-                          if (_selectedAreaType == "AC" &&
-                              _selectedAssembly != null)
-                            DropdownButtonFormField<String>(
-                              value:
-                                  _parts.any(
-                                    (p) => p['id'].toString() == _selectedPart,
-                                  )
-                                  ? _selectedPart
-                                  : null,
-                              items: _parts.map((p) {
-                                return DropdownMenuItem<String>(
-                                  value: p["id"].toString(),
-                                  child: Text(
-                                    "${p["part_name"]} - ${p["name"]}",
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Search Voter by Voter ID',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                );
-                              }).toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
-                              decoration: const InputDecoration(
-                                labelText: "Select Booth",
-                                border: OutlineInputBorder(),
+                                  const SizedBox(height: 12),
+
+                                  TextFormField(
+                                    controller: _voterIdCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Voter ID',
+                                      prefixIcon: Icon(
+                                        Icons.how_to_vote,
+                                        color: Colors.blue,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton.icon(
+                                      onPressed: _searchingVoter
+                                          ? null
+                                          : _searchByVoterId,
+                                      icon: const Icon(Icons.search),
+                                      label: Text(
+                                        _searchingVoter
+                                            ? 'Searching...'
+                                            : 'Search',
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  if (_voterFetched)
+                                    const Padding(
+                                      padding: EdgeInsets.only(top: 8),
+                                      child: Text(
+                                        '✔ Voter exists. Photo will not be changed.',
+                                        style: TextStyle(color: Colors.green),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Progress + Buttons Card
-                  Card(
-                    color: Colors.white,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.task_alt, color: primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: LinearProgressIndicator(
-                                  value: _formCompletion.clamp(0, 1),
-                                  backgroundColor: primary.withOpacity(.12),
-                                  color: primary,
-                                  minHeight: 8,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                '${(_formCompletion * 100).round()}%',
-                                style: TextStyle(
-                                  color: textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
                           ),
                           const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              SizedBox(
-                                width: 220,
-                                child: OutlinedButton.icon(
-                                  onPressed: _resetForm,
-                                  icon: const Icon(
-                                    Icons.refresh,
-                                    color: primary,
+
+                          // Profile Photo Card
+                          Card(
+                            color: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 36,
+                                    backgroundColor: Colors.grey[300],
+                                    backgroundImage:
+                                        _agentProfileImageProvider(),
                                   ),
-                                  label: const Text(
-                                    'Reset',
-                                    style: TextStyle(color: primary),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Text(
+                                      'Profile Photo',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            color: textPrimary,
+                                          ),
+                                    ),
                                   ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
+                                  OutlinedButton.icon(
+                                    icon: const Icon(
+                                      Icons.photo_library,
                                       color: primary,
-                                      width: 1.25,
                                     ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
+                                    label: const Text(
+                                      'Choose',
+                                      style: TextStyle(color: primary),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                        color: primary,
+                                        width: 1.25,
+                                      ),
                                     ),
+                                    onPressed: _voterFetched
+                                        ? null
+                                        : _pickImage,
                                   ),
-                                ),
+                                ],
                               ),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton.icon(
-                                  onPressed: _loading ? null : _submit,
-                                  icon: const Icon(Icons.person_add_alt_1),
-                                  label: Text(
-                                    _loading ? 'Adding...' : 'Add Agent',
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Form Fields Card
+                          Card(
+                            color: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  // Name fields
+                                  TextFormField(
+                                    controller: _firstNameCtrl,
+                                    enabled: !_voterFetched,
+
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      labelText: 'First Name',
+                                      prefixIcon: Icon(
+                                        Icons.badge,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'First name is required';
+                                      return null;
+                                    },
                                   ),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                                  const SizedBox(height: 12),
+                                  TextFormField(
+                                    controller: _lastNameCtrl,
+                                    enabled: !_voterFetched,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Last Name',
+                                      prefixIcon: Icon(
+                                        Icons.badge_outlined,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Last name is required';
+                                      return null;
+                                    },
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+
+                                  // ✅ Voter ID Field
+                                  TextFormField(
+                                    controller: _voterIdCtrl,
+                                    enabled: !_voterFetched,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Voter ID Number',
+                                      prefixIcon: Icon(
+                                        Icons.how_to_vote,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                      hintText: 'e.g., XYZ1234567',
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Voter ID is required';
+                                      if (v.trim().length < 7)
+                                        return 'Invalid Voter ID';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Aadhaar Number
+                                  TextFormField(
+                                    controller: _idNumberCtrl,
+                                    enabled: !_voterFetched,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(12),
+                                    ],
+                                    decoration: const InputDecoration(
+                                      labelText: 'Aadhaar Number',
+                                      prefixIcon: Icon(
+                                        Icons.credit_card,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                      hintText: '12-digit Aadhaar number',
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Aadhaar number is required';
+                                      if (!RegExp(
+                                        r'^\d{12}$',
+                                      ).hasMatch(v.trim()))
+                                        return 'Enter valid 12-digit Aadhaar';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Email
+                                  TextFormField(
+                                    controller: _emailCtrl,
+                                    textInputAction: TextInputAction.next,
+                                    keyboardType: TextInputType.emailAddress,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: Icon(
+                                        Icons.email,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Email is required';
+                                      if (!_validateEmail(v))
+                                        return 'Enter a valid email';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Password
+                                  TextFormField(
+                                    controller: _passwordCtrl,
+                                    enabled: !_voterFetched,
+                                    obscureText: _obscurePassword,
+                                    textInputAction: TextInputAction.next,
+                                    decoration: InputDecoration(
+                                      labelText: 'Password',
+                                      prefixIcon: const Icon(
+                                        Icons.lock,
+                                        color: primary,
+                                      ),
+                                      border: const OutlineInputBorder(),
+                                      suffixIcon: IconButton(
+                                        onPressed: _togglePassword,
+                                        icon: Icon(
+                                          _obscurePassword
+                                              ? Icons.visibility
+                                              : Icons.visibility_off,
+                                          color: primary,
+                                        ),
+                                      ),
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched)
+                                        return null; // 🔥 THIS IS THE FIX
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Password is required';
+                                      if (v.trim().length < 6)
+                                        return 'Minimum 6 characters';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Phone
+                                  TextFormField(
+                                    controller: _phoneCtrl,
+                                    textInputAction: TextInputAction.done,
+                                    keyboardType: TextInputType.phone,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9+\-\s]'),
+                                      ),
+                                    ],
+                                    decoration: const InputDecoration(
+                                      labelText: 'Phone',
+                                      prefixIcon: Icon(
+                                        Icons.phone,
+                                        color: primary,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    validator: (v) {
+                                      if (_voterFetched) return null;
+                                      if (v == null || v.trim().isEmpty)
+                                        return 'Phone is required';
+                                      if (!_validatePhone(v))
+                                        return 'Enter a valid phone';
+                                      return null;
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  const SizedBox(height: 12),
+
+                                  // Gender Dropdown
+                                  DropdownButtonFormField<String>(
+                                    value: _genders.contains(_selectedGender)
+                                        ? _selectedGender
+                                        : null,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Gender',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    items: _genders
+                                        .map(
+                                          (g) => DropdownMenuItem(
+                                            value: g,
+                                            child: Text(g),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (v) =>
+                                        setState(() => _selectedGender = v),
+                                    validator: (v) => v == null
+                                        ? 'Please select gender'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // DOB Picker
+                                  TextFormField(
+                                    controller: _dobCtrl,
+                                    readOnly: true,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Date of Birth',
+                                      prefixIcon: Icon(
+                                        Icons.calendar_today,
+                                        color: Colors.blue,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                      hintText: 'Select Date',
+                                    ),
+                                    onTap: () async {
+                                      DateTime? pickedDate =
+                                          await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime(1990, 1, 1),
+                                            firstDate: DateTime(1900),
+                                            lastDate: DateTime.now(),
+                                          );
+                                      if (pickedDate != null) {
+                                        _dobCtrl.text =
+                                            "${pickedDate.day}-${pickedDate.month}-${pickedDate.year}";
+                                        setState(() {});
+                                      }
+                                    },
+                                    validator: (v) => v == null || v.isEmpty
+                                        ? 'Please select date of birth'
+                                        : null,
+                                  ),
+
+                                  const SizedBox(height: 12),
+
+                                  // Address
+                                  TextFormField(
+                                    controller: _addressCtrl,
+                                    maxLines: 3,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Address',
+                                      prefixIcon: Icon(
+                                        Icons.location_city,
+                                        color: Colors.blue,
+                                      ),
+                                      border: OutlineInputBorder(),
+                                      hintText: 'Enter full address',
+                                    ),
+                                    validator: (v) =>
+                                        v == null || v.trim().isEmpty
+                                        ? 'Address is required'
+                                        : null,
+                                  ),
+
+                                  const SizedBox(height: 16),
+                                ],
                               ),
-                            ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Location Card
+                          Card(
+                            color: Colors.white,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  // CARD TITLE
+                                  Row(
+                                    children: const [
+                                      Icon(
+                                        Icons.assignment_ind,
+                                        color: Colors.blue,
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Role & Booth Assignment',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 6),
+
+                                  const Text(
+                                    'Please select role and exact polling location carefully',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+                                  // SELECT ROLE
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.security,
+                                      color: Colors.blue,
+                                    ),
+                                    title: const Text("Role"),
+                                    subtitle: const Text("Agent (Part Level)"),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  DropdownButtonFormField<String>(
+                                    value: _selectedElectionId,
+                                    items: _elections.map((e) {
+                                      return DropdownMenuItem(
+                                        value: e['id'].toString(),
+                                        child: Text(e['election_name']),
+                                      );
+                                    }).toList(),
+                                    onChanged: null,
+                                    decoration: const InputDecoration(
+                                      labelText: "Select Election",
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    validator: (v) =>
+                                        v == null ? 'Select election' : null,
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  // 🏛️ ONLY FOR ASSEMBLY
+                                  if (_selectedAreaType == "AC") ...[
+                                    const SizedBox(height: 16),
+                                    // STATE
+                                    DropdownButtonFormField<String>(
+                                      key: ValueKey(
+                                        safeKeyFromList(_states, 'state'),
+                                      ),
+                                      // ✅ ADD HERE
+                                      value: safeDropdownValue(
+                                        _states,
+                                        _selectedState,
+                                      ),
+                                      items: _states
+                                          .map(
+                                            (s) => DropdownMenuItem(
+                                              value: s,
+                                              child: Text(s),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (v) {
+                                        setState(() {
+                                          _selectedState = v;
+                                          _districts = locationHierarchy[v]!
+                                              .keys
+                                              .toList();
+                                          _selectedDistrict = null;
+                                          _assemblies = [];
+                                          _selectedAssembly = null;
+                                          _parts = [];
+                                          _selectedPart = null;
+                                        });
+                                      },
+                                      decoration: const InputDecoration(
+                                        labelText: "Select State",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    // DISTRICT
+                                    if (_selectedState != null)
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey(
+                                          safeKeyFromList(
+                                            _districts,
+                                            'district',
+                                          ),
+                                        ),
+                                        value: safeDropdownValue(
+                                          _districts,
+                                          _selectedDistrict,
+                                        ),
+                                        items: _districts
+                                            .map(
+                                              (d) => DropdownMenuItem(
+                                                value: d,
+                                                child: Text(d),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            _selectedDistrict = v;
+                                            _assemblies =
+                                                locationHierarchy[_selectedState]![v]!
+                                                    .keys
+                                                    .toList();
+                                            _selectedAssembly = null;
+                                            _parts = [];
+                                            _selectedPart = null;
+                                          });
+                                        },
+                                        decoration: const InputDecoration(
+                                          labelText: "Select District",
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+
+                                    const SizedBox(height: 16),
+
+                                    // ASSEMBLY
+                                    if (_selectedDistrict != null)
+                                      DropdownButtonFormField<String>(
+                                        key: ValueKey(
+                                          safeKeyFromList(
+                                            _assemblies,
+                                            'assembly',
+                                          ),
+                                        ),
+                                        // ✅ ADD HERE
+                                        value: safeDropdownValue(
+                                          _assemblies,
+                                          _selectedAssembly,
+                                        ),
+                                        items: _assemblies
+                                            .map(
+                                              (a) => DropdownMenuItem(
+                                                value: a,
+                                                child: Text(a),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (v) {
+                                          setState(() {
+                                            _selectedAssembly = v;
+                                            _parts =
+                                                List<Map<String, dynamic>>.from(
+                                                  locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
+                                                );
+                                            _selectedPart = null;
+                                          });
+                                        },
+
+                                        decoration: const InputDecoration(
+                                          labelText:
+                                              "Select Assembly Constituency",
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                  ],
+                                  const SizedBox(height: 16),
+
+                                  // 🏘️ MUNICIPAL – WARD BOOTHS
+                                  if (_selectedAreaType == "WARD" &&
+                                      _selectedWard != null)
+                                    DropdownButtonFormField<String>(
+                                      value:
+                                          _wardBooths.any(
+                                            (b) =>
+                                                b['booth_id'].toString() ==
+                                                _selectedPart,
+                                          )
+                                          ? _selectedPart
+                                          : null,
+                                      items: _wardBooths.map((b) {
+                                        return DropdownMenuItem<String>(
+                                          value: b['booth_id'].toString(),
+                                          child: Text(b['name']),
+                                        );
+                                      }).toList(),
+                                      onChanged: (v) =>
+                                          setState(() => _selectedPart = v),
+                                      decoration: const InputDecoration(
+                                        labelText: "Select Ward Booth",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      validator: (v) =>
+                                          _selectedAreaType == "WARD" &&
+                                              v == null
+                                          ? "Select booth"
+                                          : null,
+                                    ),
+
+                                  // 🏛️ ASSEMBLY – OLD HIERARCHY
+                                  if (_selectedAreaType == "AC" &&
+                                      _selectedAssembly != null)
+                                    DropdownButtonFormField<String>(
+                                      value:
+                                          _parts.any(
+                                            (p) =>
+                                                p['id'].toString() ==
+                                                _selectedPart,
+                                          )
+                                          ? _selectedPart
+                                          : null,
+                                      items: _parts.map((p) {
+                                        return DropdownMenuItem<String>(
+                                          value: p["id"].toString(),
+                                          child: Text(
+                                            "${p["part_name"]} - ${p["name"]}",
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (v) =>
+                                          setState(() => _selectedPart = v),
+                                      decoration: const InputDecoration(
+                                        labelText: "Select Booth",
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Progress + Buttons Card
+                          Card(
+                            color: Colors.white,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.task_alt,
+                                        color: primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: LinearProgressIndicator(
+                                          value: _formCompletion.clamp(0, 1),
+                                          backgroundColor: primary.withOpacity(
+                                            .12,
+                                          ),
+                                          color: primary,
+                                          minHeight: 8,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        '${(_formCompletion * 100).round()}%',
+                                        style: TextStyle(
+                                          color: textPrimary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: [
+                                      SizedBox(
+                                        width: 220,
+                                        child: OutlinedButton.icon(
+                                          onPressed: _resetForm,
+                                          icon: const Icon(
+                                            Icons.refresh,
+                                            color: primary,
+                                          ),
+                                          label: const Text(
+                                            'Reset',
+                                            style: TextStyle(color: primary),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: primary,
+                                              width: 1.25,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: FilledButton.icon(
+                                          onPressed: _loading ? null : _submit,
+                                          icon: const Icon(
+                                            Icons.person_add_alt_1,
+                                          ),
+                                          label: Text(
+                                            _loading
+                                                ? 'Adding...'
+                                                : 'Add Agent',
+                                          ),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: primary,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 16,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1414,8 +1489,8 @@ class _AddAgentPageState extends State<AddAgentPage> {
                 ],
               ),
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
