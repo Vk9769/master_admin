@@ -25,6 +25,15 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
   List<Map<String, dynamic>> _elections = [];
   int? _selectedElectionId;
 
+  String? _selectedAreaType;
+
+  String? _selectedWard;
+  String? _selectedAssembly;
+
+  List<String> _wardList = [];
+
+  final List<String> _areaTypes = ['AC', 'WARD'];
+
   int _totalCount = 0;
   int _approvedCount = 0;
   int _pendingCount = 0;
@@ -96,15 +105,28 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
 
       if (token == null) return;
 
-      // 🔥 Replace with selected election id
-      if (_selectedElectionId == null) return;
+      if (_selectedElectionId == null || _selectedAreaType == null) return;
+
       setState(() {
         _isLoading = true;
       });
+
       int electionId = _selectedElectionId!;
 
+      // ✅ ADD HERE
+      String url =
+          "$baseUrl/agent/list?election_id=$electionId&area_type=$_selectedAreaType";
+
+      if (_selectedAreaType == "WARD" && _selectedWard != null) {
+        url += "&ward_id=$_selectedWard";
+      }
+
+      if (_selectedAreaType == "AC" && _selectedAssembly != null) {
+        url += "&assembly=$_selectedAssembly";
+      }
+
       final response = await http.get(
-        Uri.parse("$baseUrl/agent/list/$electionId"),
+        Uri.parse(url),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -117,7 +139,7 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
           _isLoading = false;
         });
 
-        await _loadCounts(); // 🔥 ADD THIS
+        await _loadCounts();
         _fadeController.forward(from: 0);
         _slideController.forward(from: 0);
       } else {
@@ -155,6 +177,26 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
       }
     } catch (e) {
       debugPrint("Count load error: $e");
+    }
+  }
+
+  Future<void> _loadWards() async {
+    if (_selectedElectionId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/api/wards?election_id=$_selectedElectionId"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _wardList = data.map((e) => "${e['id']}|${e['ward_name']}").toList();
+      });
     }
   }
 
@@ -613,7 +655,9 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
               onChanged: (value) {
                 setState(() {
                   _selectedElectionId = value;
+                  _selectedAreaType = null; // 🔥 reset
                 });
+
                 _loadAgents(); // 🔥 Load agents when election changes
               },
               decoration: InputDecoration(
@@ -630,6 +674,75 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
               ),
             ),
           ),
+
+          // 🔥 AREA TYPE DROPDOWN (AC / WARD)
+          if (_selectedElectionId != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: DropdownButtonFormField<String>(
+                value: _selectedAreaType,
+                items: _areaTypes.map((type) {
+                  return DropdownMenuItem<String>(
+                    value: type,
+                    child: Text(type),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedAreaType = value;
+                    _selectedWard = null;
+                    _selectedAssembly = null;
+                  });
+
+                  if (value == "WARD") {
+                    _loadWards(); // load ward list
+                  }
+                },
+
+                decoration: InputDecoration(
+                  labelText: "Select Area Type",
+                  prefixIcon: Icon(Icons.map, color: Colors.blue.shade700),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor: Colors.blue.shade50,
+                ),
+              ),
+            ),
+
+          // 🔥 WARD LIST
+          if (_selectedAreaType == "WARD")
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: DropdownButtonFormField<String>(
+                value: _selectedWard,
+                items: _wardList.map((w) {
+                  final parts = w.split("|");
+                  return DropdownMenuItem(
+                    value: parts[0],
+                    child: Text(parts[1]),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedWard = value;
+                  });
+
+                  _loadAgents(); // load after ward select
+                },
+                decoration: InputDecoration(
+                  labelText: "Select Ward",
+                  prefixIcon: Icon(Icons.location_city, color: Colors.blue),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+
           if (_selectedElectionId != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
