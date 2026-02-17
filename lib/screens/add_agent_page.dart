@@ -58,10 +58,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
   String? _selectedWard;
 
   final List<String> _areaTypes = ['AC', 'WARD'];
+  List<String> _wardList = [];
+  List<Map<String, dynamic>> _wardBooths = [];
 
-  List<String> _acList = ["AC 1 - South", "AC 2 - North", "AC 3 - Central"];
-
-  List<String> _wardList = ["Ward 101", "Ward 102", "Ward 103"];
 
   // Controllers
   final _firstNameCtrl = TextEditingController();
@@ -312,10 +311,11 @@ class _AddAgentPageState extends State<AddAgentPage> {
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('$baseUrl/voter/by-voter-id/${_voterIdCtrl.text.trim()}'),
+        Uri.parse(
+          "$baseUrl/api/common/search-user?voter_id=${_voterIdCtrl.text.trim()}",
+        ),
         headers: {
           'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
         },
       );
 
@@ -431,84 +431,116 @@ class _AddAgentPageState extends State<AddAgentPage> {
   }
 
   Future<void> _submit() async {
-    print("🟢 SUBMIT BUTTON CLICKED");
+    if (_selectedElectionId == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Select election")));
+      return;
+    }
+
+    if (_selectedPart == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Select booth")));
+      return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
-    if (token == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Session expired. Please login again')),
-      );
-      return;
-    }
-    if (!_validateAndLog()) return;
+    if (token == null) return;
 
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      print("❌ FORM VALIDATION FAILED");
-      return;
-    }
-
-    print("🟢 FORM VALIDATION PASSED");
     setState(() => _loading = true);
 
     try {
-      final uri = Uri.parse('$baseUrl/agent');
-      final request = http.MultipartRequest('POST', uri);
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/agent'),
+      );
+
       request.headers['Authorization'] = 'Bearer $token';
 
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
-      request.fields['voterId'] = _voterFetched && _voterData != null
-          ? _voterData!['voter_id']
-          : _voterIdCtrl.text.trim();
-
-      request.fields['idType'] = 'Aadhaar';
-      request.fields['idNumber'] = _idNumberCtrl.text.trim();
-      request.fields['email'] = _emailCtrl.text.trim();
+      request.fields['voterId'] = _voterIdCtrl.text.trim();
       request.fields['phone'] = _phoneCtrl.text.trim();
+      request.fields['email'] = _emailCtrl.text.trim();
       request.fields['gender'] = _selectedGender ?? '';
       request.fields['dob'] = _dobCtrl.text.trim();
       request.fields['address'] = _addressCtrl.text.trim();
+      request.fields['idType'] = 'Aadhaar';
+      request.fields['idNumber'] = _idNumberCtrl.text.trim();
       request.fields['boothId'] = _selectedPart!;
       request.fields['electionId'] = _selectedElectionId!;
+
+      if (_selectedAreaType == "WARD") {
+        request.fields['ward_id'] = _selectedWard ?? "";
+      }
 
       if (!_voterFetched) {
         request.fields['password'] = _passwordCtrl.text.trim();
       }
 
-      if (!_voterFetched && _pickedImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profilePhoto',
-            _pickedImage!.path,
-            contentType: MediaType('image', 'jpeg'),
-          ),
-        );
-      }
-
-      print("🟢 SENDING API REQUEST");
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      print("STATUS => ${response.statusCode}");
-      print("BODY => ${response.body}");
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agent saved successfully')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Agent Created")));
         _resetForm();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(response.body)));
+        final data = jsonDecode(responseBody);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(data["message"] ?? "Error")));
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Request failed: $e')));
-    } finally {
-      setState(() => _loading = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Server Error")));
+    }
+
+    setState(() => _loading = false);
+  }
+
+
+  Future<void> _loadWards() async {
+    if (_selectedElectionId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/api/wards?election_id=$_selectedElectionId"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _wardList = data
+            .map((e) => "${e['id']}|${e['ward_name']}")
+            .toList();
+      });
+    }
+  }
+  Future<void> _loadWardBooths() async {
+    if (_selectedElectionId == null || _selectedWard == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+    if (token == null) return;
+
+    final response = await http.get(
+      Uri.parse(
+        "$baseUrl/api/election-booths/by-ward?election_id=$_selectedElectionId&ward_id=$_selectedWard",
+      ),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _wardBooths = List<Map<String, dynamic>>.from(data);
+        _selectedPart = null;
+      });
     }
   }
 
@@ -600,10 +632,13 @@ class _AddAgentPageState extends State<AddAgentPage> {
                               onChanged: (v) {
                                 setState(() {
                                   _selectedAreaType = v;
-                                  _selectedAC = null;
-                                  _selectedWard = null;
                                 });
+
+                                if (v == "WARD") {
+                                  _loadWards();
+                                }
                               },
+
                               decoration: const InputDecoration(
                                 labelText: "Select Area Type",
                                 border: OutlineInputBorder(),
@@ -616,39 +651,27 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
                           const SizedBox(height: 12),
 
-                          // AC LIST
-                          if (_selectedAreaType == 'AC')
-                            DropdownButtonFormField<String>(
-                              value: _selectedAC,
-                              items: _acList.map((ac) {
-                                return DropdownMenuItem(
-                                  value: ac,
-                                  child: Text(ac),
-                                );
-                              }).toList(),
-                              onChanged: (v) => setState(() => _selectedAC = v),
-                              decoration: const InputDecoration(
-                                labelText: "Select AC",
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) =>
-                                  _selectedAreaType == 'AC' && v == null
-                                  ? 'Select AC'
-                                  : null,
-                            ),
-
                           // WARD LIST
                           if (_selectedAreaType == 'WARD')
                             DropdownButtonFormField<String>(
                               value: _selectedWard,
                               items: _wardList.map((w) {
+                                final parts = w.split("|");
                                 return DropdownMenuItem(
-                                  value: w,
-                                  child: Text(w),
+                                  value: parts[0], // send ward_id
+                                  child: Text(parts[1]),
                                 );
                               }).toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedWard = v),
+
+                              onChanged: (v) {
+                                setState(() {
+                                  _selectedWard = v;
+                                  _selectedPart = null;
+                                });
+
+                                _loadWardBooths();   // ✅ LOAD WARD BOOTHS HERE
+                              },
+
                               decoration: const InputDecoration(
                                 labelText: "Select Ward",
                                 border: OutlineInputBorder(),
@@ -1120,6 +1143,9 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
                           const SizedBox(height: 16),
 
+                      // 🏛️ ONLY FOR ASSEMBLY
+                      if (_selectedAreaType == "AC") ...[
+                          const SizedBox(height: 16),
                           // STATE
                           DropdownButtonFormField<String>(
                             key: ValueKey(safeKeyFromList(_states, 'state')),
@@ -1225,46 +1251,52 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 border: OutlineInputBorder(),
                               ),
                             ),
-
+                      ],
                           const SizedBox(height: 16),
 
-                          // BOOTH
-                          if (_selectedAssembly != null)
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                _parts.isEmpty
-                                    ? 'booth_empty'
-                                    : 'booth_${_parts.map((e) => e['id']).join("")}',
-                              ),
-                              isExpanded: true,
-                              menuMaxHeight: 300,
 
-                              value:
-                                  _parts.any(
-                                    (p) => p['id'].toString() == _selectedPart,
-                                  )
+                          // 🏘️ MUNICIPAL – WARD BOOTHS
+                          if (_selectedAreaType == "WARD" && _selectedWard != null)
+                            DropdownButtonFormField<String>(
+                              value: _wardBooths.any((b) => b['booth_id'].toString() == _selectedPart)
                                   ? _selectedPart
                                   : null,
+                              items: _wardBooths.map((b) {
+                                return DropdownMenuItem<String>(
+                                  value: b['booth_id'].toString(),
+                                  child: Text(b['name']),
+                                );
+                              }).toList(),
+                              onChanged: (v) => setState(() => _selectedPart = v),
+                              decoration: const InputDecoration(
+                                labelText: "Select Ward Booth",
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                              _selectedAreaType == "WARD" && v == null
+                                  ? "Select booth"
+                                  : null,
+                            ),
 
+                         // 🏛️ ASSEMBLY – OLD HIERARCHY
+                          if (_selectedAreaType == "AC" && _selectedAssembly != null)
+                            DropdownButtonFormField<String>(
+                              value: _parts.any((p) => p['id'].toString() == _selectedPart)
+                                  ? _selectedPart
+                                  : null,
                               items: _parts.map((p) {
                                 return DropdownMenuItem<String>(
                                   value: p["id"].toString(),
-                                  child: Text(
-                                    "${p["part_name"]} - ${p["name"]}",
-                                  ),
+                                  child: Text("${p["part_name"]} - ${p["name"]}"),
                                 );
                               }).toList(),
-
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
-
+                              onChanged: (v) => setState(() => _selectedPart = v),
                               decoration: const InputDecoration(
                                 labelText: "Select Booth",
                                 border: OutlineInputBorder(),
                               ),
-                              validator: (v) =>
-                                  v == null ? "Select booth" : null,
                             ),
+
                         ],
                       ),
                     ),
