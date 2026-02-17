@@ -52,6 +52,25 @@ class AddAdminPage extends StatefulWidget {
 class _AddAdminPageState extends State<AddAdminPage> {
   final _formKey = GlobalKey<FormState>();
 
+  // Election Selection
+  String? _selectedElection;
+  String? _selectedAreaType; // AC or WARD
+
+  String? _selectedAC;
+  String? _selectedWard;
+
+  List<String> _electionList = [
+    "Assembly Election",
+    "Municipal Election",
+    "Parliament Election",
+  ];
+
+  final List<String> _areaTypes = ['AC', 'WARD'];
+
+  List<String> _acList = ["AC 1 - South", "AC 2 - North", "AC 3 - Central"];
+
+  List<String> _wardList = ["Ward 101", "Ward 102", "Ward 103"];
+
   // Controllers
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -465,6 +484,135 @@ class _AddAdminPageState extends State<AddAdminPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 🗳️ Election Selection Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Election Selection',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // STEP 1 — Select Election
+                          DropdownButtonFormField<String>(
+                            value: _selectedElection,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Election',
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) =>
+                                v == null ? 'Please select election' : null,
+                            items: _electionList.map((e) {
+                              return DropdownMenuItem(value: e, child: Text(e));
+                            }).toList(),
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedElection = value;
+                                _selectedAreaType = null;
+                                _selectedAC = null;
+                                _selectedWard = null;
+                              });
+                            },
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // STEP 2 — Select AC or Ward (only after election selected)
+                          if (_selectedElection != null)
+                            DropdownButtonFormField<String>(
+                              value: _selectedAreaType,
+                              decoration: const InputDecoration(
+                                labelText: 'Select Area Type',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedElection != null && v == null
+                                  ? 'Please select area type'
+                                  : null,
+                              items: _areaTypes.map((type) {
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedAreaType = value;
+                                  _selectedAC = null;
+                                  _selectedWard = null;
+                                });
+                              },
+                            ),
+
+                          const SizedBox(height: 12),
+
+                          // STEP 3 — AC List
+                          if (_selectedAreaType == 'AC')
+                            DropdownButtonFormField<String>(
+                              value: _selectedAC,
+                              decoration: const InputDecoration(
+                                labelText: 'Select AC',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedAreaType == 'AC' && v == null
+                                  ? 'Please select AC'
+                                  : null,
+                              items: _acList.map((ac) {
+                                return DropdownMenuItem(
+                                  value: ac,
+                                  child: Text(ac),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedAC = value;
+                                });
+                              },
+                            ),
+
+                          // STEP 3 — Ward List
+                          if (_selectedAreaType == 'WARD')
+                            DropdownButtonFormField<String>(
+                              value: _selectedWard,
+                              decoration: const InputDecoration(
+                                labelText: 'Select Ward',
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedAreaType == 'WARD' && v == null
+                                  ? 'Please select Ward'
+                                  : null,
+                              items: _wardList.map((ward) {
+                                return DropdownMenuItem(
+                                  value: ward,
+                                  child: Text(ward),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedWard = value;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // 🔍 VOTER SEARCH CARD
                   Card(
                     elevation: 2,

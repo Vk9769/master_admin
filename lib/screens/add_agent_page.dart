@@ -52,6 +52,17 @@ class AddAgentPage extends StatefulWidget {
 class _AddAgentPageState extends State<AddAgentPage> {
   final _formKey = GlobalKey<FormState>();
 
+  // 🗳️ TOP ELECTION AREA SELECTION
+  String? _selectedAreaType; // AC or WARD
+  String? _selectedAC;
+  String? _selectedWard;
+
+  final List<String> _areaTypes = ['AC', 'WARD'];
+
+  List<String> _acList = ["AC 1 - South", "AC 2 - North", "AC 3 - Central"];
+
+  List<String> _wardList = ["Ward 101", "Ward 102", "Ward 103"];
+
   // Controllers
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -430,13 +441,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
       );
       return;
     }
-
-    if (_selectedElectionId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an election')),
-      );
-      return;
-    }
     if (!_validateAndLog()) return;
 
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -533,6 +537,134 @@ class _AddAgentPageState extends State<AddAgentPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 🗳️ Election Selection (TOP)
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Election Area Selection',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // SELECT ELECTION
+                          DropdownButtonFormField<String>(
+                            value: _selectedElectionId,
+                            items: _elections.map((e) {
+                              return DropdownMenuItem(
+                                value: e['id'].toString(),
+                                child: Text(e['election_name']),
+                              );
+                            }).toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedElectionId = v;
+
+                                // reset cascading
+                                _selectedAreaType = null;
+                                _selectedAC = null;
+                                _selectedWard = null;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              labelText: "Select Election",
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) =>
+                                v == null ? 'Select election' : null,
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // AREA TYPE
+                          if (_selectedElectionId != null)
+                            DropdownButtonFormField<String>(
+                              value: _selectedAreaType,
+                              items: _areaTypes.map((t) {
+                                return DropdownMenuItem(
+                                  value: t,
+                                  child: Text(t),
+                                );
+                              }).toList(),
+                              onChanged: (v) {
+                                setState(() {
+                                  _selectedAreaType = v;
+                                  _selectedAC = null;
+                                  _selectedWard = null;
+                                });
+                              },
+                              decoration: const InputDecoration(
+                                labelText: "Select Area Type",
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedElectionId != null && v == null
+                                  ? 'Select area type'
+                                  : null,
+                            ),
+
+                          const SizedBox(height: 12),
+
+                          // AC LIST
+                          if (_selectedAreaType == 'AC')
+                            DropdownButtonFormField<String>(
+                              value: _selectedAC,
+                              items: _acList.map((ac) {
+                                return DropdownMenuItem(
+                                  value: ac,
+                                  child: Text(ac),
+                                );
+                              }).toList(),
+                              onChanged: (v) => setState(() => _selectedAC = v),
+                              decoration: const InputDecoration(
+                                labelText: "Select AC",
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedAreaType == 'AC' && v == null
+                                  ? 'Select AC'
+                                  : null,
+                            ),
+
+                          // WARD LIST
+                          if (_selectedAreaType == 'WARD')
+                            DropdownButtonFormField<String>(
+                              value: _selectedWard,
+                              items: _wardList.map((w) {
+                                return DropdownMenuItem(
+                                  value: w,
+                                  child: Text(w),
+                                );
+                              }).toList(),
+                              onChanged: (v) =>
+                                  setState(() => _selectedWard = v),
+                              decoration: const InputDecoration(
+                                labelText: "Select Ward",
+                                border: OutlineInputBorder(),
+                              ),
+                              validator: (v) =>
+                                  _selectedAreaType == 'WARD' && v == null
+                                  ? 'Select Ward'
+                                  : null,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // 🔍 VOTER SEARCH CARD
                   Card(
                     elevation: 2,
@@ -977,8 +1109,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                 child: Text(e['election_name']),
                               );
                             }).toList(),
-                            onChanged: (v) =>
-                                setState(() => _selectedElectionId = v),
+                            onChanged: null,
                             decoration: const InputDecoration(
                               labelText: "Select Election",
                               border: OutlineInputBorder(),
@@ -986,6 +1117,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                             validator: (v) =>
                                 v == null ? 'Select election' : null,
                           ),
+
                           const SizedBox(height: 16),
 
                           // STATE
