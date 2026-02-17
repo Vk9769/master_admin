@@ -1070,7 +1070,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const ViewAllAgentsPage()),
+                MaterialPageRoute(builder: (_) => const AdminAgentsPage()),
               );
             },
           ),

@@ -342,7 +342,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const ViewAllAgentsPage(),
+                                builder: (_) => const AdminAgentsPage(),
                               ),
                             ),
                           ),
@@ -578,7 +578,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ViewAllAgentsPage(),
+                          builder: (_) => const AdminAgentsPage(),
                         ),
                       ),
                     ),
