@@ -61,7 +61,6 @@ class _AddAgentPageState extends State<AddAgentPage> {
   List<String> _wardList = [];
   List<Map<String, dynamic>> _wardBooths = [];
 
-
   // Controllers
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -230,7 +229,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
       return NetworkImage(_existingProfilePhotoUrl!);
     }
 
-    return const AssetImage("admin_avatar.png");
+    return const AssetImage("assets/admin_avatar.png");
   }
 
   Future<void> _fetchElections() async {
@@ -314,9 +313,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
         Uri.parse(
           "$baseUrl/api/common/search-user?voter_id=${_voterIdCtrl.text.trim()}",
         ),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode != 200) {
@@ -432,14 +429,16 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
   Future<void> _submit() async {
     if (_selectedElectionId == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Select election")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Select election")));
       return;
     }
 
     if (_selectedPart == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Select booth")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Select booth")));
       return;
     }
 
@@ -482,22 +481,24 @@ class _AddAgentPageState extends State<AddAgentPage> {
       final responseBody = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("Agent Created")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Agent Created")));
         _resetForm();
       } else {
         final data = jsonDecode(responseBody);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(data["message"] ?? "Error")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(data["message"] ?? "Error")));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Server Error")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Server Error")));
     }
 
     setState(() => _loading = false);
   }
-
 
   Future<void> _loadWards() async {
     if (_selectedElectionId == null) return;
@@ -514,12 +515,11 @@ class _AddAgentPageState extends State<AddAgentPage> {
       final List data = jsonDecode(response.body);
 
       setState(() {
-        _wardList = data
-            .map((e) => "${e['id']}|${e['ward_name']}")
-            .toList();
+        _wardList = data.map((e) => "${e['id']}|${e['ward_name']}").toList();
       });
     }
   }
+
   Future<void> _loadWardBooths() async {
     if (_selectedElectionId == null || _selectedWard == null) return;
 
@@ -669,7 +669,7 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                   _selectedPart = null;
                                 });
 
-                                _loadWardBooths();   // ✅ LOAD WARD BOOTHS HERE
+                                _loadWardBooths(); // ✅ LOAD WARD BOOTHS HERE
                               },
 
                               decoration: const InputDecoration(
@@ -1143,122 +1143,127 @@ class _AddAgentPageState extends State<AddAgentPage> {
 
                           const SizedBox(height: 16),
 
-                      // 🏛️ ONLY FOR ASSEMBLY
-                      if (_selectedAreaType == "AC") ...[
-                          const SizedBox(height: 16),
-                          // STATE
-                          DropdownButtonFormField<String>(
-                            key: ValueKey(safeKeyFromList(_states, 'state')),
-                            // ✅ ADD HERE
-                            value: safeDropdownValue(_states, _selectedState),
-                            items: _states
-                                .map(
-                                  (s) => DropdownMenuItem(
-                                    value: s,
-                                    child: Text(s),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (v) {
-                              setState(() {
-                                _selectedState = v;
-                                _districts = locationHierarchy[v]!.keys
-                                    .toList();
-                                _selectedDistrict = null;
-                                _assemblies = [];
-                                _selectedAssembly = null;
-                                _parts = [];
-                                _selectedPart = null;
-                              });
-                            },
-                            decoration: const InputDecoration(
-                              labelText: "Select State",
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // DISTRICT
-                          if (_selectedState != null)
+                          // 🏛️ ONLY FOR ASSEMBLY
+                          if (_selectedAreaType == "AC") ...[
+                            const SizedBox(height: 16),
+                            // STATE
                             DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                safeKeyFromList(_districts, 'district'),
-                              ),
-                              value: safeDropdownValue(
-                                _districts,
-                                _selectedDistrict,
-                              ),
-                              items: _districts
+                              key: ValueKey(safeKeyFromList(_states, 'state')),
+                              // ✅ ADD HERE
+                              value: safeDropdownValue(_states, _selectedState),
+                              items: _states
                                   .map(
-                                    (d) => DropdownMenuItem(
-                                      value: d,
-                                      child: Text(d),
+                                    (s) => DropdownMenuItem(
+                                      value: s,
+                                      child: Text(s),
                                     ),
                                   )
                                   .toList(),
                               onChanged: (v) {
                                 setState(() {
-                                  _selectedDistrict = v;
-                                  _assemblies =
-                                      locationHierarchy[_selectedState]![v]!
-                                          .keys
-                                          .toList();
+                                  _selectedState = v;
+                                  _districts = locationHierarchy[v]!.keys
+                                      .toList();
+                                  _selectedDistrict = null;
+                                  _assemblies = [];
                                   _selectedAssembly = null;
                                   _parts = [];
                                   _selectedPart = null;
                                 });
                               },
                               decoration: const InputDecoration(
-                                labelText: "Select District",
+                                labelText: "Select State",
                                 border: OutlineInputBorder(),
                               ),
                             ),
 
+                            const SizedBox(height: 16),
+
+                            // DISTRICT
+                            if (_selectedState != null)
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(
+                                  safeKeyFromList(_districts, 'district'),
+                                ),
+                                value: safeDropdownValue(
+                                  _districts,
+                                  _selectedDistrict,
+                                ),
+                                items: _districts
+                                    .map(
+                                      (d) => DropdownMenuItem(
+                                        value: d,
+                                        child: Text(d),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) {
+                                  setState(() {
+                                    _selectedDistrict = v;
+                                    _assemblies =
+                                        locationHierarchy[_selectedState]![v]!
+                                            .keys
+                                            .toList();
+                                    _selectedAssembly = null;
+                                    _parts = [];
+                                    _selectedPart = null;
+                                  });
+                                },
+                                decoration: const InputDecoration(
+                                  labelText: "Select District",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+
+                            const SizedBox(height: 16),
+
+                            // ASSEMBLY
+                            if (_selectedDistrict != null)
+                              DropdownButtonFormField<String>(
+                                key: ValueKey(
+                                  safeKeyFromList(_assemblies, 'assembly'),
+                                ),
+                                // ✅ ADD HERE
+                                value: safeDropdownValue(
+                                  _assemblies,
+                                  _selectedAssembly,
+                                ),
+                                items: _assemblies
+                                    .map(
+                                      (a) => DropdownMenuItem(
+                                        value: a,
+                                        child: Text(a),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (v) {
+                                  setState(() {
+                                    _selectedAssembly = v;
+                                    _parts = List<Map<String, dynamic>>.from(
+                                      locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
+                                    );
+                                    _selectedPart = null;
+                                  });
+                                },
+
+                                decoration: const InputDecoration(
+                                  labelText: "Select Assembly Constituency",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                          ],
                           const SizedBox(height: 16),
-
-                          // ASSEMBLY
-                          if (_selectedDistrict != null)
-                            DropdownButtonFormField<String>(
-                              key: ValueKey(
-                                safeKeyFromList(_assemblies, 'assembly'),
-                              ),
-                              // ✅ ADD HERE
-                              value: safeDropdownValue(
-                                _assemblies,
-                                _selectedAssembly,
-                              ),
-                              items: _assemblies
-                                  .map(
-                                    (a) => DropdownMenuItem(
-                                      value: a,
-                                      child: Text(a),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (v) {
-                                setState(() {
-                                  _selectedAssembly = v;
-                                  _parts = List<Map<String, dynamic>>.from(
-                                    locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
-                                  );
-                                  _selectedPart = null;
-                                });
-                              },
-
-                              decoration: const InputDecoration(
-                                labelText: "Select Assembly Constituency",
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                      ],
-                          const SizedBox(height: 16),
-
 
                           // 🏘️ MUNICIPAL – WARD BOOTHS
-                          if (_selectedAreaType == "WARD" && _selectedWard != null)
+                          if (_selectedAreaType == "WARD" &&
+                              _selectedWard != null)
                             DropdownButtonFormField<String>(
-                              value: _wardBooths.any((b) => b['booth_id'].toString() == _selectedPart)
+                              value:
+                                  _wardBooths.any(
+                                    (b) =>
+                                        b['booth_id'].toString() ==
+                                        _selectedPart,
+                                  )
                                   ? _selectedPart
                                   : null,
                               items: _wardBooths.map((b) {
@@ -1267,36 +1272,43 @@ class _AddAgentPageState extends State<AddAgentPage> {
                                   child: Text(b['name']),
                                 );
                               }).toList(),
-                              onChanged: (v) => setState(() => _selectedPart = v),
+                              onChanged: (v) =>
+                                  setState(() => _selectedPart = v),
                               decoration: const InputDecoration(
                                 labelText: "Select Ward Booth",
                                 border: OutlineInputBorder(),
                               ),
                               validator: (v) =>
-                              _selectedAreaType == "WARD" && v == null
+                                  _selectedAreaType == "WARD" && v == null
                                   ? "Select booth"
                                   : null,
                             ),
 
-                         // 🏛️ ASSEMBLY – OLD HIERARCHY
-                          if (_selectedAreaType == "AC" && _selectedAssembly != null)
+                          // 🏛️ ASSEMBLY – OLD HIERARCHY
+                          if (_selectedAreaType == "AC" &&
+                              _selectedAssembly != null)
                             DropdownButtonFormField<String>(
-                              value: _parts.any((p) => p['id'].toString() == _selectedPart)
+                              value:
+                                  _parts.any(
+                                    (p) => p['id'].toString() == _selectedPart,
+                                  )
                                   ? _selectedPart
                                   : null,
                               items: _parts.map((p) {
                                 return DropdownMenuItem<String>(
                                   value: p["id"].toString(),
-                                  child: Text("${p["part_name"]} - ${p["name"]}"),
+                                  child: Text(
+                                    "${p["part_name"]} - ${p["name"]}",
+                                  ),
                                 );
                               }).toList(),
-                              onChanged: (v) => setState(() => _selectedPart = v),
+                              onChanged: (v) =>
+                                  setState(() => _selectedPart = v),
                               decoration: const InputDecoration(
                                 labelText: "Select Booth",
                                 border: OutlineInputBorder(),
                               ),
                             ),
-
                         ],
                       ),
                     ),
