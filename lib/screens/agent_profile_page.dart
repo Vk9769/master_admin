@@ -33,7 +33,7 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
       final token = prefs.getString("token");
 
       final response = await http.get(
-        Uri.parse("$baseUrl/agent/details/${widget.agentId}"),
+        Uri.parse("$baseUrl/agent/${widget.agentId}"),
         headers: {"Authorization": "Bearer $token"},
       );
 

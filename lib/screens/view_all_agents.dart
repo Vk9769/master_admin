@@ -443,7 +443,7 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditAgentPage(agentId: agent['id']),
+            EditAgentPage(agentId: agent['id'].toString()),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
