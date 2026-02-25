@@ -45,7 +45,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int votesCasted = 0;
   int votesPending = 0;
 
-  bool isLoading = true;
+  bool isLoading = true;  
 
   int _currentIndex = 0; // For bottom navigation
 

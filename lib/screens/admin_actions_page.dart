@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'add_polling_booth_page.dart';
 import 'view_all_booth.dart';
-import 'add_agent_page.dart';
 import 'view_all_agents.dart';
 import 'view_all_voters.dart';
 import 'view_candidate.dart';
@@ -317,26 +316,9 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                         Expanded(
                           child: _buildActionCard(
                             context,
-                            4,
-                            Icons.person_add,
-                            'Add Agent',
-                            'Register new polling agent',
-                            Colors.purple,
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const AddAgentPage(),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildActionCard(
-                            context,
                             5,
                             Icons.group,
-                            'View Agents',
+                            'Manage Agents',
                             'Manage all agents',
                             Colors.pink,
                             () => Navigator.push(
@@ -557,22 +539,9 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
 
                     _buildActionCard(
                       context,
-                      4,
-                      Icons.person_add,
-                      'Add Agent',
-                      'Register new polling agent',
-                      Colors.purple,
-                      () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AddAgentPage()),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActionCard(
-                      context,
                       5,
                       Icons.group,
-                      'View Agents',
+                      'Manage Agents',
                       'Manage all agents',
                       Colors.pink,
                       () => Navigator.push(

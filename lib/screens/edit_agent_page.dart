@@ -114,9 +114,12 @@ class _EditAgentPageState extends State<EditAgentPage> {
   @override
   void initState() {
     super.initState();
-    _fetchLocationHierarchy();
-    _fetchElections();
-    _loadAgentDetails(); // 🔥 ADD THIS
+    _initLoad();
+  }
+
+  Future<void> _initLoad() async {
+    await _fetchElections(); // small API first
+    await _loadAgentDetails(); // 🔥 fetch agent FIRST
   }
 
   Future<void> _fetchLocationHierarchy() async {
@@ -232,7 +235,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
       return NetworkImage(_existingProfilePhotoUrl!);
     }
 
-    return const AssetImage("admin_avatar.png");
+    return const AssetImage("assets/admin_avatar.png");
   }
 
   Future<void> _fetchElections() async {
@@ -263,25 +266,78 @@ class _EditAgentPageState extends State<EditAgentPage> {
         headers: {"Authorization": "Bearer $token"},
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (response.statusCode != 200) return;
 
-        setState(() {
-          _firstNameCtrl.text = data['first_name'] ?? '';
-          _lastNameCtrl.text = data['last_name'] ?? '';
-          _voterIdCtrl.text = data['voter_id'] ?? '';
-          _phoneCtrl.text = data['phone'] ?? '';
-          _emailCtrl.text = data['email'] ?? '';
-          _dobCtrl.text = data['dob'] ?? '';
-          _addressCtrl.text = data['address'] ?? '';
-          _selectedGender = normalizeGender(data['gender']);
+      final data = jsonDecode(response.body);
 
-          _existingProfilePhotoUrl = data['profile_photo'];
+      // 🔹 BASIC DETAILS
+      _firstNameCtrl.text = data['first_name'] ?? '';
+      _lastNameCtrl.text = data['last_name'] ?? '';
+      _voterIdCtrl.text = data['voter_id'] ?? '';
+      _phoneCtrl.text = data['phone'] ?? '';
+      _emailCtrl.text = data['email'] ?? '';
+      _dobCtrl.text = _formatDOB(data['date_of_birth']);
+      _idNumberCtrl.text = data['gov_id_no'] ?? '';
+      _selectedGender = normalizeGender(data['gender']);
+      _existingProfilePhotoUrl = data['profile_photo'];
 
-          _selectedElectionId = data['election_id']?.toString();
-          _selectedPart = data['booth_id']?.toString();
-        });
+      _selectedElectionId = data['election_id']?.toString();
+      _selectedPart = data['booth_id']?.toString();
+
+      // 🔥 AUTO DETECT AREA TYPE
+
+      // 🏘️ IF WARD EXISTS
+      if (data['ward_id'] != null && data['ward_id'].toString().isNotEmpty) {
+        _selectedAreaType = "WARD";
+        _selectedWard = data['ward_id'].toString();
+
+        await _loadWards();
+        await _loadWardBooths();
+
+        // ✅ FORCE UI REFRESH AFTER DATA READY
+        setState(() {});
       }
+      // 🏛️ ELSE AC MODE
+      else {
+        /// =========================
+        /// ASSEMBLY MODE
+        /// =========================
+
+        _selectedAreaType = "AC";
+
+        // 🔥 LOAD hierarchy ONLY NOW (NOT BEFORE)
+        await _fetchLocationHierarchy();
+
+        final state = data['state'];
+        final district = data['district'];
+        final assembly = data['assembly_constituency'];
+
+        if (state != null && locationHierarchy.containsKey(state)) {
+          _selectedState = state;
+          _districts = locationHierarchy[state]!.keys.toList();
+
+          if (_districts.contains(district)) {
+            _selectedDistrict = district;
+            _assemblies = locationHierarchy[state]![district]!.keys.toList();
+
+            if (_assemblies.contains(assembly)) {
+              _selectedAssembly = assembly;
+
+              _parts = List<Map<String, dynamic>>.from(
+                locationHierarchy[state]![district]![assembly]!,
+              );
+
+              /// 🔥 VERY IMPORTANT FIX (restore selected booth)
+              if (_selectedPart != null &&
+                  !_parts.any((p) => p['id'].toString() == _selectedPart)) {
+                _selectedPart = null;
+              }
+            }
+          }
+        }
+      }
+
+      setState(() {});
     } catch (e) {
       debugPrint("Load Agent Error: $e");
     }
@@ -368,8 +424,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
       _phoneCtrl.text = data['phone'] ?? '';
       _emailCtrl.text = data['email'] ?? '';
       _idNumberCtrl.text = data['gov_id_no'] ?? '';
-      _addressCtrl.text = data['address'] ?? '';
-      _dobCtrl.text = data['dob'] ?? '';
+      _dobCtrl.text = data['date_of_birth'] ?? '';
       _selectedGender = normalizeGender(data['gender']);
       _existingProfilePhotoUrl = data['profile_photo'];
 
@@ -377,7 +432,8 @@ class _EditAgentPageState extends State<EditAgentPage> {
       final state = data['state'];
       final district = data['district'];
       final assembly = data['assembly_constituency'];
-      final boothId = data['boothid']?.toString();
+      final boothId = data['booth_id']?.toString();
+      _selectedPart = boothId;
 
       // STATE
       if (state != null && locationHierarchy.containsKey(state)) {
@@ -390,15 +446,24 @@ class _EditAgentPageState extends State<EditAgentPage> {
           _assemblies = locationHierarchy[state]![district]!.keys.toList();
 
           // ASSEMBLY
-          if (_assemblies.contains(assembly)) {
-            _selectedAssembly = assembly;
-            _parts = List<Map<String, dynamic>>.from(
-              locationHierarchy[state]![district]![assembly]!,
+          if (assembly != null) {
+            final matchedAssembly = _assemblies.firstWhere(
+              (a) => a.trim() == assembly.toString().trim(),
+              orElse: () => "",
             );
 
-            // BOOTH
-            if (_parts.any((p) => p['id'].toString() == boothId)) {
-              _selectedPart = boothId;
+            if (matchedAssembly.isNotEmpty) {
+              _selectedAssembly = matchedAssembly;
+
+              _parts = List<Map<String, dynamic>>.from(
+                locationHierarchy[state]![district]![matchedAssembly]!,
+              );
+
+              /// 🔥 RESTORE SELECTED BOOTH AFTER PARTS LOAD
+              if (_selectedPart != null &&
+                  !_parts.any((p) => p['id'].toString() == _selectedPart)) {
+                _selectedPart = null;
+              }
             }
           }
         }
@@ -573,8 +638,32 @@ class _EditAgentPageState extends State<EditAgentPage> {
 
       setState(() {
         _wardBooths = List<Map<String, dynamic>>.from(data);
-        _selectedPart = null;
+
+        /// 🔥 RESTORE selected booth AFTER load
+        if (_selectedPart != null) {
+          final exists = _wardBooths.any(
+            (b) => b['booth_id'].toString() == _selectedPart,
+          );
+
+          if (!exists) {
+            _selectedPart = null;
+          }
+        }
       });
+    }
+  }
+
+  String _formatDOB(dynamic dob) {
+    if (dob == null) return "";
+
+    try {
+      DateTime date = DateTime.parse(dob.toString());
+
+      return "${date.day.toString().padLeft(2, '0')}-"
+          "${date.month.toString().padLeft(2, '0')}-"
+          "${date.year}";
+    } catch (e) {
+      return dob.toString().split(" ").first;
     }
   }
 
@@ -1276,6 +1365,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
                                     _parts = List<Map<String, dynamic>>.from(
                                       locationHierarchy[_selectedState]![_selectedDistrict]![v]!,
                                     );
+
                                     _selectedPart = null;
                                   });
                                 },
@@ -1422,7 +1512,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
                                   onPressed: _loading ? null : _submit,
                                   icon: const Icon(Icons.person_add_alt_1),
                                   label: Text(
-                                    _loading ? 'Adding...' : 'Add Agent',
+                                    _loading ? 'Updating...' : 'Update Agent',
                                   ),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: primary,

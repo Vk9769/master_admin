@@ -487,8 +487,8 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
   Widget _buildAgentCard(Map<String, dynamic> agent, int index) {
     ImageProvider? displayImage;
 
-    if (agent['agent_photo_url'] != null) {
-      displayImage = NetworkImage(agent['agent_photo_url']);
+    if (agent['profile_photo'] != null) {
+      displayImage = NetworkImage(agent['profile_photo']);
     } else if (agent['image'] != null && agent['image'].isNotEmpty) {
       displayImage = MemoryImage(base64Decode(agent['image']));
     }
@@ -516,6 +516,8 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
         ),
         title: Text(
           "${agent['first_name']} ${agent['last_name'] ?? ''}",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 18,
@@ -525,12 +527,27 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 🔥 Show selected WARD name
+            if (_selectedAreaType == 'WARD')
+              Text(
+                'Ward: ${_wardList.firstWhere((w) => w.startsWith("$_selectedWard|"), orElse: () => "|N/A").split("|")[1]}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              ),
+
+            // 🔥 Show selected AC name
+            if (_selectedAreaType == 'AC')
+              Text(
+                'AC: ${_selectedAssembly ?? 'N/A'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              ),
+
+            // 🔥 Booth Name FULL (no dots)
             Text(
-              'Party: ${agent['party'] ?? 'N/A'}',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
-            ),
-            Text(
-              'Age: ${agent['age'] ?? 'N/A'}',
+              'Booth: ${agent['booth_name'] ?? 'N/A'}',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),
           ],

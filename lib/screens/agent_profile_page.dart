@@ -105,12 +105,14 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
       return const Scaffold(body: Center(child: Text("Agent not found")));
     }
 
-    final profileImage = agent!['agent_photo_url'] != null
-        ? NetworkImage(agent!['agent_photo_url'])
-        : null;
-
-    final symbolImage = agent!['party_symbol_url'] != null
-        ? NetworkImage(agent!['party_symbol_url'])
+    final profileImage =
+        agent!['profile_photo'] != null &&
+            agent!['profile_photo'].toString().isNotEmpty
+        ? NetworkImage(
+            agent!['profile_photo'].toString().startsWith("http")
+                ? agent!['profile_photo']
+                : "$baseUrl/${agent!['profile_photo']}",
+          )
         : null;
 
     return Scaffold(
@@ -122,11 +124,7 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
             pinned: true,
             backgroundColor: Colors.blue.shade700,
             flexibleSpace: FlexibleSpaceBar(
-              background: _buildTricolorHeader(
-                profileImage,
-                symbolImage,
-                themeColor,
-              ),
+              background: _buildTricolorHeader(profileImage, themeColor),
             ),
           ),
           SliverToBoxAdapter(
@@ -148,7 +146,34 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
                     agent!['gender'],
                     themeColor,
                   ),
-                  _buildInfoCard(Icons.cake, "Age", agent!['age'], themeColor),
+
+                  _buildInfoCard(
+                    Icons.calendar_today,
+                    "Date of Birth",
+                    _formatDOB(agent!['date_of_birth']),
+                    themeColor,
+                  ),
+
+                  _buildInfoCard(
+                    Icons.how_to_vote,
+                    "Voter ID",
+                    agent!['voter_id'],
+                    themeColor,
+                  ),
+
+                  _buildInfoCard(
+                    Icons.credit_card,
+                    "Aadhaar Number",
+                    agent!['gov_id_no'],
+                    themeColor,
+                  ),
+
+                  _buildInfoCard(
+                    Icons.home,
+                    "Personal Address",
+                    agent!['address'],
+                    themeColor,
+                  ),
 
                   const SizedBox(height: 20),
 
@@ -166,17 +191,48 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
                     themeColor,
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  _buildSectionTitle("Political Information"),
+                  _buildSectionTitle("Election & Booth Details"),
+
                   _buildInfoCard(
-                    Icons.flag,
-                    "Party",
-                    agent!['party'],
+                    Icons.how_to_vote,
+                    "Election",
+                    agent!['election_name'],
                     themeColor,
                   ),
 
-                  const SizedBox(height: 12),
+                  if (agent!['area_type'] == "WARD")
+                    _buildInfoCard(
+                      Icons.location_city,
+                      "Ward",
+                      agent!['ward_name'],
+                      themeColor,
+                    ),
+
+                  if (agent!['area_type'] == "AC")
+                    _buildInfoCard(
+                      Icons.account_balance,
+                      "Assembly Constituency",
+                      agent!['assembly_name'],
+                      themeColor,
+                    ),
+
+                  _buildInfoCard(
+                    Icons.store,
+                    "Booth",
+                    agent!['booth_name'],
+                    themeColor,
+                  ),
+
+                  _buildInfoCard(
+                    Icons.location_on,
+                    "Booth Address",
+                    agent!['booth_address'],
+                    themeColor,
+                  ),
+
+                  const SizedBox(height: 20),
 
                   Center(child: _buildStatusBadge(agent!['nomination_status'])),
                   const SizedBox(height: 20),
@@ -234,6 +290,20 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
         ],
       ),
     );
+  }
+
+  String _formatDOB(dynamic dob) {
+    if (dob == null) return "Not provided";
+
+    try {
+      DateTime date = DateTime.parse(dob.toString());
+
+      return "${date.day.toString().padLeft(2, '0')}-"
+          "${date.month.toString().padLeft(2, '0')}-"
+          "${date.year}";
+    } catch (e) {
+      return dob.toString().split(" ").first;
+    }
   }
 
   Widget _buildStatusBadge(String? status) {
@@ -296,11 +366,7 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
   }
 
   /// 🇮🇳 Tricolor Header
-  Widget _buildTricolorHeader(
-    ImageProvider? profileImage,
-    ImageProvider? symbolImage,
-    Color themeColor,
-  ) {
+  Widget _buildTricolorHeader(ImageProvider? profileImage, Color themeColor) {
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
@@ -350,64 +416,7 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
                   ),
                 ),
 
-                const SizedBox(height: 25),
-
-                // Party symbol
-                if (symbolImage != null)
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white, width: 3),
-                      image: DecorationImage(
-                        image: symbolImage,
-                        fit: BoxFit.cover,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black38,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: Colors.white.withOpacity(0.3),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.flag,
-                      color: Colors.white,
-                      size: 45,
-                    ),
-                  ),
-
                 const SizedBox(height: 10),
-
-                // Party name
-                Text(
-                  agent!['party'] ?? "Party Name",
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        blurRadius: 3,
-                        color: Colors.black54,
-                        offset: Offset(1, 1),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -477,8 +486,7 @@ class _AgentProfilePageState extends State<AgentProfilePage> {
               fontSize: 15,
               height: 1.4,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            maxLines: null,
           ),
         ),
       ),
