@@ -477,6 +477,27 @@ class _AddAgentPageState extends State<AddAgentPage> {
         request.fields['password'] = _passwordCtrl.text.trim();
       }
 
+      // 🔥 ATTACH PROFILE PHOTO IF SELECTED
+      if (!_voterFetched) {
+        if (kIsWeb && _webImageBytes != null) {
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'profilePhoto',   // MUST match backend field name
+              _webImageBytes!,
+              filename: 'agent_photo.jpg',
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        } else if (!kIsWeb && _pickedImage != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'profilePhoto',   // MUST match backend field name
+              _pickedImage!.path,
+            ),
+          );
+        }
+      }
+
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
 
