@@ -16,6 +16,10 @@ import 'admin_actions_page.dart';
 import 'election_declaration_page.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'ai_chat_panel.dart';
+import 'admin_statistics_page.dart';
+import 'booths_tab_page.dart';
+import 'admins_tab_page.dart';
+import 'agents_tab_page.dart';
 
 /// Utility to format large numbers
 String formatNumber(int number) {
@@ -768,9 +772,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _getBody() {
     switch (_currentIndex) {
       case 0:
-        return _dashboardBody();
+        return _dashboardBody(); // Always dashboard layout
       case 1:
-        return const AdminActionsPage(); // NEW PAGE
+        return const AdminActionsPage();
       case 2:
         return const AdminMessageCenterPage();
       default:
@@ -881,6 +885,135 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Widget _buildOverviewSection() {
+    final Color foreground = Colors.black87;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Overview',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0B2C5D),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Real-time voting statistics and election insights',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        /// Voting Status Card
+        Card(
+          elevation: 3,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.how_to_vote,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Voting Status",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0B2C5D),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          "Live casted vs pending votes",
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _VotingStatusCard(
+                        title: "Votes Casted",
+                        value: formatNumber(votesCasted),
+                        color: Colors.green,
+                        icon: Icons.done_all,
+                        progress: (votesCasted + votesPending) > 0
+                            ? votesCasted / (votesCasted + votesPending)
+                            : 0.0,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AllVotingStatusPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _VotingStatusCard(
+                        title: "Votes Pending",
+                        value: formatNumber(votesPending),
+                        color: Colors.red,
+                        icon: Icons.pending_actions,
+                        progress: (votesCasted + votesPending) > 0
+                            ? votesPending / (votesCasted + votesPending)
+                            : 0.0,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AllVotingStatusPage(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+        _buildVotingGraph(),
+      ],
+    );
+  }
+
   Widget _dashboardBody() {
     final Color foreground = Colors.black87;
 
@@ -923,114 +1056,28 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         _buildTopTabs(),
 
                         const SizedBox(height: 24),
-                        // Header
-                        Text(
-                          'Overview',
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: foreground,
-                              ),
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
 
-                        // Voting Status Card with progress bars
-                        Card(
-                          elevation: 3,
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                        /// 🔥 DYNAMIC CONTENT BASED ON TOP TAB
+                        if (_selectedTopTab == 0) ...[
+                          _buildOverviewSection(),
+                        ] else if (_selectedTopTab == 1) ...[
+                          const AdminStatisticsContent(), // NEW WIDGET
+                        ] else if (_selectedTopTab == 2) ...[
+                          const BoothsTabPage(),
+                        ] else if (_selectedTopTab == 3) ...[
+                          const AdminsTabPage(),
+                        ] else if (_selectedTopTab == 4) ...[
+                          const AgentsTabPage(),
+                        ] else if (_selectedTopTab == 5) ...[
+                          Center(child: Text("Voters Analytics Coming Soon")),
+                        ] else if (_selectedTopTab == 6) ...[
+                          Center(child: Text("Observer Analytics Coming Soon")),
+                        ] else if (_selectedTopTab == 7) ...[
+                          Center(
+                            child: Text("Campaigners Analytics Coming Soon"),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: const [
-                                    Icon(
-                                      Icons.how_to_reg,
-                                      color: Colors.blueAccent,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      "Voting Status",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    Expanded(
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  AllVotingStatusPage(
-                                                    statusType: "casted",
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                        child: _VotingStatusCard(
-                                          title: "Votes Casted",
-                                          value: formatNumber(votesCasted),
-                                          color: Colors.green,
-                                          icon: Icons.done_all,
-                                          progress:
-                                              (votesCasted + votesPending) > 0
-                                              ? votesCasted /
-                                                    (votesCasted + votesPending)
-                                              : 0.0,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  AllVotingStatusPage(
-                                                    statusType: "pending",
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                        child: _VotingStatusCard(
-                                          title: "Votes Pending",
-                                          value: formatNumber(votesPending),
-                                          color: Colors.redAccent,
-                                          icon: Icons.pending_actions,
-                                          progress:
-                                              (votesCasted + votesPending) > 0
-                                              ? votesPending /
-                                                    (votesCasted + votesPending)
-                                              : 0.0,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        _buildVotingGraph(),
+                        ],
                       ],
                     ),
                   ),
@@ -1315,6 +1362,7 @@ class _VotingStatusCard extends StatelessWidget {
   final Color color;
   final IconData icon;
   final double progress;
+  final VoidCallback? onTap;
 
   const _VotingStatusCard({
     required this.title,
@@ -1322,70 +1370,75 @@ class _VotingStatusCard extends StatelessWidget {
     required this.color,
     required this.icon,
     this.progress = 0,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(icon, color: color, size: 26),
                 ),
-                padding: const EdgeInsets.all(8),
-                child: Icon(icon, color: color, size: 26),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        value,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: color,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(height: 4),
+                      Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: color.withOpacity(0.2),
-            color: color,
-            minHeight: 6,
-          ),
-        ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: progress,
+              backgroundColor: color.withOpacity(0.2),
+              color: color,
+              minHeight: 6,
+            ),
+          ],
+        ),
       ),
     );
   }
