@@ -278,6 +278,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
       _emailCtrl.text = data['email'] ?? '';
       _dobCtrl.text = _formatDOB(data['date_of_birth']);
       _idNumberCtrl.text = data['gov_id_no'] ?? '';
+      _addressCtrl.text = data['address'] ?? '';
       _selectedGender = normalizeGender(data['gender']);
       _existingProfilePhotoUrl = data['profile_photo'];
 
@@ -531,6 +532,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
   }
 
   Future<void> _submit() async {
+    if (!_validateAndLog()) return;
     if (_selectedElectionId == null) {
       ScaffoldMessenger.of(
         context,
@@ -561,7 +563,6 @@ class _EditAgentPageState extends State<EditAgentPage> {
 
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
-      request.fields['voterId'] = _voterIdCtrl.text.trim();
       request.fields['phone'] = _phoneCtrl.text.trim();
       request.fields['email'] = _emailCtrl.text.trim();
       request.fields['gender'] = _selectedGender ?? '';
@@ -574,6 +575,27 @@ class _EditAgentPageState extends State<EditAgentPage> {
 
       if (_selectedAreaType == "WARD") {
         request.fields['ward_id'] = _selectedWard ?? "";
+      } else {
+        request.fields['ward_id'] = "";
+      }
+
+      // 🔥 Attach profile photo if selected
+      if (kIsWeb && _webImageBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'profilePhoto',
+            _webImageBytes!,
+            filename: 'agent_photo.jpg',
+            contentType: MediaType('image', 'jpeg'),
+          ),
+        );
+      } else if (!kIsWeb && _pickedImage != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profilePhoto',
+            _pickedImage!.path,
+          ),
+        );
       }
 
       final response = await request.send();
@@ -1079,12 +1101,14 @@ class _EditAgentPageState extends State<EditAgentPage> {
                               ),
                             ),
                             validator: (v) {
-                              if (_voterFetched)
-                                return null; // 🔥 THIS IS THE FIX
-                              if (v == null || v.trim().isEmpty)
-                                return 'Password is required';
-                              if (v.trim().length < 6)
+                              if (v == null || v.trim().isEmpty) {
+                                return null; // allow blank on edit
+                              }
+
+                              if (v.trim().length < 6) {
                                 return 'Minimum 6 characters';
+                              }
+
                               return null;
                             },
                           ),
