@@ -15,7 +15,6 @@ import 'view_candidate.dart';
 import 'admin_actions_page.dart';
 import 'election_declaration_page.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:async';
 
 /// Utility to format large numbers
 String formatNumber(int number) {
@@ -45,7 +44,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int votesCasted = 0;
   int votesPending = 0;
 
-  bool isLoading = true;  
+  bool isLoading = true;
 
   int _currentIndex = 0; // For bottom navigation
 
@@ -53,78 +52,513 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String adminEmail = '';
   String adminPhoto = '';
 
-  DateTime electionStartTime = DateTime.now().subtract(Duration(hours: 3));
+  late TransformationController _transformationController;
+  bool _isPanEnabled = true;
+  bool _isScaleEnabled = true;
 
-  // ===== Election analytics =====
-  String? selectedElection;
+  double minX = 0;
+  double maxX = 6;
+  double minY = 0;
+  double maxY = 4000;
 
-  int electionTotalVoters = 0;
-  int electionVotesCasted = 0;
-  int electionOurVoters = 0;
+  int totalVoters = 5000;
+  int ourVotesCasted = 0;
 
-  // Enhanced graph data with real-time updates
-  late List<double> _totalVotersTrend = [
-    5000,
-    12000,
-    18500,
-    26000,
-    34500,
-    43000,
-    52000,
-    61000,
-    69000,
-    75000,
+  final List<FlSpot> totalVotingData = [
+    FlSpot(0, 400),
+    FlSpot(1, 900),
+    FlSpot(2, 1500),
+    FlSpot(3, 2100),
+    FlSpot(4, 2700),
+    FlSpot(5, 3100),
+    FlSpot(6, 3500),
   ];
 
-  late List<double> _votesCastedTrend = [
-    3000,
-    8000,
-    14000,
-    21000,
-    29500,
-    37000,
-    45500,
-    54000,
-    62000,
-    70000,
+  final List<FlSpot> ourVotingData = [
+    FlSpot(0, 200),
+    FlSpot(1, 450),
+    FlSpot(2, 900),
+    FlSpot(3, 1300),
+    FlSpot(4, 1700),
+    FlSpot(5, 2100),
+    FlSpot(6, 2500),
   ];
-
-  late List<double> _ourVotersTrend = [
-    1800,
-    4200,
-    7500,
-    11000,
-    16500,
-    21500,
-    26500,
-    31500,
-    36000,
-    40500,
-  ];
-
-  // Graph interaction & zoom variables
-  double _graphScale = 1.0;
-  Offset _graphOffset = Offset.zero;
-  FlSpot? _selectedSpot;
-  Timer? _realtimeUpdateTimer;
-  bool isGraphRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     fetchDashboardStats();
     loadAdminInfo();
+
+    _transformationController = TransformationController();
+    _transformationController.addListener(_updateYAxis);
   }
 
   @override
   void dispose() {
-    _realtimeUpdateTimer?.cancel();
+    _transformationController.dispose();
     super.dispose();
   }
 
-  double get winningPercentage {
-    if (electionVotesCasted == 0) return 0;
-    return (electionOurVoters / electionVotesCasted) * 100;
+  double _getNiceInterval(double range) {
+    double roughStep = range / 5;
+
+    if (roughStep <= 10) return 10;
+    if (roughStep <= 50) return 50;
+    if (roughStep <= 100) return 100;
+    if (roughStep <= 250) return 250;
+    if (roughStep <= 500) return 500;
+    if (roughStep <= 1000) return 1000;
+    if (roughStep <= 2500) return 2500;
+    if (roughStep <= 5000) return 5000;
+
+    return (roughStep / 1000).ceil() * 1000;
+  }
+
+  void _updateYAxis() {
+    final matrix = _transformationController.value;
+
+    final scaleX = matrix.getMaxScaleOnAxis();
+
+    final translationX = matrix.row0[3]; // REAL PAN POSITION
+
+    // Total range
+    const double totalRange = 6;
+
+    // Visible range after zoom
+    double visibleRange = totalRange / scaleX;
+
+    // Calculate left boundary from translation
+    double newMinX = (-translationX / scaleX).clamp(
+      0.0,
+      totalRange - visibleRange,
+    );
+
+    double newMaxX = newMinX + visibleRange;
+
+    final visibleSpots = [
+      ...totalVotingData,
+      ...ourVotingData,
+    ].where((e) => e.x >= newMinX && e.x <= newMaxX);
+
+    if (visibleSpots.isEmpty) return;
+
+    double localMinY = visibleSpots
+        .map((e) => e.y)
+        .reduce((a, b) => a < b ? a : b);
+
+    double localMaxY = visibleSpots
+        .map((e) => e.y)
+        .reduce((a, b) => a > b ? a : b);
+
+    if (newMinX == minX &&
+        newMaxX == maxX &&
+        localMinY == minY &&
+        localMaxY == maxY) {
+      return;
+    }
+
+    setState(() {
+      minX = newMinX;
+      maxX = newMaxX;
+
+      double padding = (localMaxY - localMinY) * 0.1;
+
+      double interval = _getNiceInterval(localMaxY - localMinY);
+
+      minY = ((localMinY - padding) / interval).floor() * interval;
+      minY = minY < 0 ? 0 : minY;
+
+      maxY = ((localMaxY + padding) / interval).ceil() * interval;
+    });
+  }
+
+  Widget _buildVotingGraph() {
+    final Color accent = Colors.blue;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 18),
+        ],
+      ),
+
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            /// ⭐ PRO HEADER
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.trending_up, color: accent),
+                ),
+
+                const SizedBox(width: 12),
+
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Live Voting Trend",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0B2C5D),
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      "Votes received every 5 minutes",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 26),
+
+            AspectRatio(
+              aspectRatio: 1.4,
+              child: LineChart(
+                transformationConfig: FlTransformationConfig(
+                  scaleAxis: FlScaleAxis.horizontal,
+                  minScale: 1.0,
+                  maxScale: 20,
+                  panEnabled: _isPanEnabled,
+                  scaleEnabled: _isScaleEnabled,
+                  transformationController: _transformationController,
+                ),
+                LineChartData(
+                  minX: minX,
+                  maxX: maxX,
+                  minY: minY,
+                  maxY: maxY,
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.25),
+
+                        strokeWidth: 1,
+                        dashArray: [6, 6],
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.25),
+
+                        strokeWidth: 1,
+                        dashArray: [6, 6],
+                      );
+                    },
+                  ),
+
+                  borderData: FlBorderData(show: false),
+
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (spots) {
+                        return spots.map((e) {
+                          return LineTooltipItem(
+                            "${e.y.toInt()} votes",
+                            const TextStyle(color: Colors.white),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
+
+                  titlesData: FlTitlesData(
+                    show: true,
+
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+
+                    leftTitles: AxisTitles(
+                      drawBelowEverything: true,
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        interval: _getNiceInterval(maxY - minY),
+
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            value.toInt().toString(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.black54,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 1,
+                        reservedSize: 30,
+                        getTitlesWidget: (value, meta) {
+                          const times = [
+                            "10:00",
+                            "10:05",
+                            "10:10",
+                            "10:15",
+                            "10:20",
+                            "10:25",
+                            "10:30",
+                          ];
+
+                          if (value.toInt() < times.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                times[value.toInt()],
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            );
+                          }
+                          return const SizedBox();
+                        },
+                      ),
+                    ),
+                  ),
+
+                  lineBarsData: [
+                    /// TOTAL VOTES (AUTO GREEN INTENSITY)
+                    LineChartBarData(
+                      spots: totalVotingData,
+                      isCurved: true,
+                      barWidth: 3,
+
+                      /// COLOR BASED ON TOTAL VOTES VALUE
+                      color: votesCasted >= ourVotesCasted
+                          ? Colors.green
+                          : Colors.green.shade300,
+
+                      dotData: const FlDotData(show: false),
+
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.green.withOpacity(0.25),
+                            Colors.green.withOpacity(0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+
+                    /// OUR VOTES (AUTO ORANGE INTENSITY)
+                    LineChartBarData(
+                      spots: ourVotingData,
+                      isCurved: true,
+                      barWidth: 3,
+
+                      /// COLOR BASED ON PERFORMANCE
+                      color: ourVotesCasted >= (votesCasted * 0.5)
+                          ? Colors.orange
+                          : Colors.orange.shade300,
+
+                      dotData: const FlDotData(show: false),
+
+                      belowBarData: BarAreaData(
+                        show: true,
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.orange.withOpacity(0.25),
+                            Colors.orange.withOpacity(0.0),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                duration: Duration.zero,
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                /// TOTAL VOTERS
+                Expanded(
+                  child: _graphStat(
+                    "Total Voters",
+                    formatNumber(totalVoters),
+                    Colors.blue,
+                    Icons.people,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                /// TOTAL VOTES CASTED
+                Expanded(
+                  child: _graphStat(
+                    "Votes Casted",
+                    formatNumber(votesCasted),
+                    Colors.green,
+                    Icons.done_all,
+                  ),
+                ),
+
+                const SizedBox(width: 12),
+
+                /// OUR VOTES
+                Expanded(
+                  child: _graphStat(
+                    "Our Votes",
+                    formatNumber(ourVotesCasted),
+                    Colors.orange,
+                    Icons.how_to_vote,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            /// ⭐ WINNING CHANCE ANALYTICS
+            Center(child: _buildWinningChance()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWinningChance() {
+    /// 🔥 CALCULATE WINNING %
+    double winningPercent = 0;
+
+    if (votesCasted > 0) {
+      winningPercent = (ourVotesCasted / votesCasted) * 100;
+    }
+
+    /// COLOR LOGIC (Election style)
+    Color indicatorColor;
+
+    if (winningPercent >= 60) {
+      indicatorColor = Colors.green;
+    } else if (winningPercent >= 40) {
+      indicatorColor = Colors.orange;
+    } else {
+      indicatorColor = Colors.red;
+    }
+
+    return Column(
+      children: [
+        const Text(
+          "Chance of Winning",
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF0B2C5D),
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        /// 🔥 PROGRESS INDICATOR (Professional look)
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: CircularProgressIndicator(
+                value: winningPercent / 100,
+                strokeWidth: 10,
+                backgroundColor: Colors.grey.withOpacity(.2),
+                color: indicatorColor,
+              ),
+            ),
+
+            Text(
+              "${winningPercent.toStringAsFixed(1)}%",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: indicatorColor,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 10),
+
+        Text(
+          winningPercent >= 60
+              ? "Strong Lead"
+              : winningPercent >= 40
+              ? "Competitive"
+              : "Needs Push",
+          style: TextStyle(fontWeight: FontWeight.w600, color: indicatorColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _graphStat(String title, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+
+          const SizedBox(height: 6),
+
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> loadAdminInfo() async {
@@ -137,491 +571,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     print("👤 Admin Name Loaded: $adminName");
     print("📧 Admin Email Loaded: $adminEmail");
-  }
-
-  Widget _electionAnalyticsSection() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ===== SELECT ELECTION =====
-            DropdownButtonFormField<String>(
-              value: selectedElection,
-              hint: const Text("Select Election"),
-              items: const [
-                DropdownMenuItem(value: "e1", child: Text("Election 2026")),
-                DropdownMenuItem(value: "e2", child: Text("By Election 2025")),
-              ],
-              onChanged: (v) {
-                setState(() {
-                  selectedElection = v;
-
-                  // TEMP values – later replace with API
-                  electionTotalVoters = 125000;
-                  electionVotesCasted = 78300;
-                  electionOurVoters = 61200;
-                  _selectedSpot = null;
-                });
-              },
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (selectedElection != null) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _simpleKpi("Total Voters", electionTotalVoters),
-                  _simpleKpi("Votes Casted", electionVotesCasted),
-                  _simpleKpi("Our Voters", electionOurVoters),
-                ],
-              ),
-            ] else
-              const Center(
-                child: Text(
-                  "Select an election to view analytics",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-
-            const SizedBox(height: 24),
-
-            // ===== GRAPH CONTROLS (Zoom, Reset, Refresh) =====
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildGraphButton(
-                    icon: Icons.zoom_in,
-                    label: "Zoom In",
-                    onPressed: () {
-                      setState(() {
-                        _graphScale = (_graphScale + 0.2).clamp(1.0, 3.0);
-                      });
-                    },
-                  ),
-                  _buildGraphButton(
-                    icon: Icons.zoom_out,
-                    label: "Zoom Out",
-                    onPressed: () {
-                      setState(() {
-                        _graphScale = (_graphScale - 0.2).clamp(1.0, 3.0);
-                      });
-                    },
-                  ),
-                  _buildGraphButton(
-                    icon: Icons.restore,
-                    label: "Reset",
-                    onPressed: () {
-                      setState(() {
-                        _graphScale = 1.0;
-                        _graphOffset = Offset.zero;
-                        _selectedSpot = null;
-                      });
-                    },
-                  ),
-                  _buildGraphButton(
-                    icon: Icons.refresh,
-                    label: "Refresh",
-                    isLoading: isGraphRefreshing,
-                    onPressed: _refreshGraphData,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ===== ENHANCED LINE GRAPH WITH ZOOM & TOUCH INTERACTION =====
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
-              ),
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 280,
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          _graphOffset += details.delta;
-                        });
-                      },
-                      child: LineChart(_buildEnhancedLineChartData()),
-                    ),
-                  ),
-                  if (_selectedSpot != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.blue[300]!),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 12,
-                        ),
-                        child: Text(
-                          "📊 Point: (${_selectedSpot!.x.toStringAsFixed(1)}, ${_selectedSpot!.y.toStringAsFixed(2)})",
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blue,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ===== GRAPH LEGEND =====
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _legendItem(
-                    "Total Voters",
-                    Colors.blue,
-                    _totalVotersTrend.last.toInt(),
-                  ),
-
-                  _legendItem(
-                    "Votes Casted",
-                    Colors.green,
-                    _votesCastedTrend.last.toInt(),
-                  ),
-
-                  _legendItem(
-                    "Our Voters",
-                    Colors.orange,
-                    _ourVotersTrend.last.toInt(),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ===== WINNING PERCENTAGE =====
-            Center(
-              child: Column(
-                children: [
-                  const Text(
-                    "Chances of Winning",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "${winningPercentage.toStringAsFixed(0)}%",
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "Last updated: Real-time",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[600],
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Enhanced line chart data with better styling and interactivity
-  LineChartData _buildEnhancedLineChartData() {
-    return LineChartData(
-      gridData: FlGridData(
-        show: true,
-        drawHorizontalLine: true,
-        drawVerticalLine: false,
-        horizontalInterval: 10,
-        verticalInterval: 1,
-        getDrawingHorizontalLine: (value) {
-          return FlLine(color: Colors.grey[200]!, strokeWidth: 0.8);
-        },
-        getDrawingVerticalLine: (value) {
-          return FlLine(color: Colors.grey[200]!, strokeWidth: 0.8);
-        },
-      ),
-      borderData: FlBorderData(
-        show: true,
-        border: Border.all(color: Colors.grey[300]!, width: 1.2),
-      ),
-      titlesData: FlTitlesData(
-        bottomTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            reservedSize: 32,
-            getTitlesWidget: (value, meta) {
-              final time = electionStartTime.add(
-                Duration(minutes: value.toInt()),
-              );
-
-              final formatted =
-                  "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
-
-              return Text(
-                formatted,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-              );
-            },
-          ),
-        ),
-        leftTitles: AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            getTitlesWidget: (value, meta) {
-              return Text(
-                formatNumber(value.toInt()),
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              );
-            },
-
-            reservedSize: 42,
-          ),
-        ),
-        rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      ),
-      lineBarsData: [
-        _buildEnhancedLine(_totalVotersTrend, Colors.blue, 2),
-        _buildEnhancedLine(_votesCastedTrend, Colors.green, 2),
-        _buildEnhancedLine(_ourVotersTrend, Colors.orange, 2),
-      ],
-      minX: 0,
-      maxX: (_totalVotersTrend.length - 1).toDouble() * _graphScale,
-      minY: 0,
-      maxY: _votesCastedTrend.reduce((a, b) => a > b ? a : b) + 500,
-
-      clipData: const FlClipData.all(),
-      lineTouchData: LineTouchData(
-        enabled: true,
-        handleBuiltInTouches: true,
-        touchTooltipData: LineTouchTooltipData(
-          getTooltipItems: (List<LineBarSpot> lineBarsSpot) {
-            return lineBarsSpot.map((lineBarSpot) {
-              return LineTooltipItem(
-                lineBarSpot.y.toStringAsFixed(2),
-                const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              );
-            }).toList();
-          },
-          tooltipPadding: const EdgeInsets.all(8),
-          tooltipMargin: 8,
-        ),
-
-        touchCallback: (event, response) {
-          if (response != null &&
-              response.lineBarSpots != null &&
-              response.lineBarSpots!.isNotEmpty) {
-            setState(() {
-              final spot = response.lineBarSpots!.first;
-              _selectedSpot = FlSpot(spot.x, spot.y);
-            });
-          }
-        },
-      ),
-    );
-  }
-
-  // Enhanced line with better styling
-  LineChartBarData _buildEnhancedLine(
-    List<double> data,
-    Color color,
-    double width,
-  ) {
-    return LineChartBarData(
-      spots: data.asMap().entries.map((e) {
-        final time = electionStartTime.add(Duration(minutes: e.key * 15));
-
-        final minutesSinceStart = time
-            .difference(electionStartTime)
-            .inMinutes
-            .toDouble();
-
-        return FlSpot(minutesSinceStart, e.value);
-      }).toList(),
-
-      isCurved: false,
-      barWidth: width,
-      color: color,
-      dotData: FlDotData(
-        show: false,
-        getDotPainter: (spot, percent, barData, index) {
-          return FlDotCirclePainter(
-            radius: 5,
-            color: color,
-            strokeWidth: 2,
-            strokeColor: Colors.white,
-          );
-        },
-      ),
-      belowBarData: BarAreaData(show: false),
-    );
-  }
-
-  // Graph control buttons
-  Widget _buildGraphButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-    bool isLoading = false,
-  }) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: ElevatedButton.icon(
-          onPressed: isLoading ? null : onPressed,
-          icon: isLoading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.blue[700]!,
-                    ),
-                  ),
-                )
-              : Icon(icon, size: 16),
-          label: Text(
-            label,
-            style: const TextStyle(fontSize: 11),
-            overflow: TextOverflow.ellipsis,
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.blue[700],
-            side: BorderSide(color: Colors.blue[300]!, width: 1.5),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Legend item for graph
-  Widget _legendItem(String label, Color color, int value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 6),
-
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        ),
-
-        const SizedBox(width: 8),
-
-        Text(
-          formatNumber(value),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Refresh graph data with real-time simulation
-  Future<void> _refreshGraphData() async {
-    setState(() {
-      isGraphRefreshing = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 1200));
-
-    setState(() {
-      // Simulate real-time data update by adding new values
-      _totalVotersTrend.add(_totalVotersTrend.last + 600);
-      _votesCastedTrend.add(
-        _votesCastedTrend.last + (500 + (DateTime.now().second * 3)),
-      );
-      _ourVotersTrend.add(_ourVotersTrend.last + 350);
-
-      // Keep only last 10 data points for performance
-      if (_totalVotersTrend.length > 10) {
-        _totalVotersTrend.removeAt(0);
-        _votesCastedTrend.removeAt(0);
-        _ourVotersTrend.removeAt(0);
-      }
-
-      _selectedSpot = null;
-      isGraphRefreshing = false;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('📊 Graph data refreshed successfully!'),
-        backgroundColor: Colors.green[600],
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
-  Widget _simpleKpi(String title, int value) {
-    return Column(
-      children: [
-        Text(title, style: const TextStyle(color: Colors.grey)),
-        const SizedBox(height: 4),
-        Text(
-          formatNumber(value),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
   }
 
   Future<void> fetchDashboardStats() async {
@@ -657,6 +606,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
           votesPending =
               int.tryParse(data['votesPending']?.toString() ?? '0') ?? 0;
+          ourVotesCasted = votesCasted ~/ 2; // temporary logic
         } else {
           print("⚠ API error or success=false");
 
@@ -743,9 +693,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ===== ELECTION ANALYTICS (NEW) =====
-                    _electionAnalyticsSection(),
-
                     const SizedBox(height: 24),
                     // Header
                     Text(
@@ -892,6 +839,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
 
                     const SizedBox(height: 20),
+
+                    _buildVotingGraph(),
                   ],
                 ),
               );

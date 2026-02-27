@@ -1379,58 +1379,71 @@ class _EditAgentPageState extends State<EditAgentPage> {
                           const SizedBox(height: 16),
 
                           // 🏘️ MUNICIPAL – WARD BOOTHS
+                          // 🏘️ MUNICIPAL – WARD BOOTHS
                           if (_selectedAreaType == "WARD" &&
                               _selectedWard != null)
-                            DropdownButtonFormField<String>(
-                              value:
-                                  _wardBooths.any(
-                                    (b) =>
-                                        b['booth_id'].toString() ==
-                                        _selectedPart,
-                                  )
-                                  ? _selectedPart
-                                  : null,
-                              items: _wardBooths.map((b) {
-                                return DropdownMenuItem<String>(
-                                  value: b['booth_id'].toString(),
-                                  child: Text(b['name']),
-                                );
-                              }).toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
+                            InputDecorator(
                               decoration: const InputDecoration(
                                 labelText: "Select Ward Booth",
                                 border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.all(12),
                               ),
-                              validator: (v) =>
-                                  _selectedAreaType == "WARD" && v == null
-                                  ? "Select booth"
-                                  : null,
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  value:
+                                      _wardBooths.any(
+                                        (b) =>
+                                            b['booth_id'].toString() ==
+                                            _selectedPart,
+                                      )
+                                      ? _selectedPart
+                                      : null,
+                                  items: _wardBooths.map((b) {
+                                    return DropdownMenuItem<String>(
+                                      value: b['booth_id'].toString(),
+                                      child: Text(b['name'], softWrap: true),
+                                    );
+                                  }).toList(),
+                                  onChanged: (v) =>
+                                      setState(() => _selectedPart = v),
+                                ),
+                              ),
                             ),
 
-                          // 🏛️ ASSEMBLY – OLD HIERARCHY
+                          const SizedBox(height: 16),
+
+                          // 🏛️ ASSEMBLY – BOOTHS
                           if (_selectedAreaType == "AC" &&
                               _selectedAssembly != null)
-                            DropdownButtonFormField<String>(
-                              value:
-                                  _parts.any(
-                                    (p) => p['id'].toString() == _selectedPart,
-                                  )
-                                  ? _selectedPart
-                                  : null,
-                              items: _parts.map((p) {
-                                return DropdownMenuItem<String>(
-                                  value: p["id"].toString(),
-                                  child: Text(
-                                    "${p["part_name"]} - ${p["name"]}",
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedPart = v),
+                            InputDecorator(
                               decoration: const InputDecoration(
                                 labelText: "Select Booth",
                                 border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.all(12),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  value:
+                                      _parts.any(
+                                        (p) =>
+                                            p['id'].toString() == _selectedPart,
+                                      )
+                                      ? _selectedPart
+                                      : null,
+                                  items: _parts.map((p) {
+                                    return DropdownMenuItem<String>(
+                                      value: p["id"].toString(),
+                                      child: Text(
+                                        "${p["part_name"]} - ${p["name"]}",
+                                        softWrap: true,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (v) =>
+                                      setState(() => _selectedPart = v),
+                                ),
                               ),
                             ),
                         ],
