@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_super_admin_page.dart';
 import 'edit_agent_page.dart';
-import 'agent_profile_page.dart';
+import 'super_admin_profile_page.dart';
 
 class ViewSuperAdminPage extends StatefulWidget {
   const ViewSuperAdminPage({Key? key}) : super(key: key);
@@ -98,7 +98,9 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse("$baseUrl/api/common/election-states?election_id=$electionId"),
+        Uri.parse(
+          "$baseUrl/api/common/election-states?election_id=$electionId",
+        ),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -169,7 +171,7 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
       print("COUNT API → election=$_selectedElectionId state=$_selectedState");
       final response = await http.get(
         Uri.parse(
-            "$baseUrl/super-admin/counts?election_id=$_selectedElectionId&state=$_selectedState"
+          "$baseUrl/super-admin/counts?election_id=$_selectedElectionId&state=$_selectedState",
         ),
         headers: {"Authorization": "Bearer $token"},
       );
@@ -462,7 +464,7 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            AgentProfilePage(agentId: superAdmin['id']),
+            SuperAdminProfilePage(superadminId: superAdmin['id']),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
