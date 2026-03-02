@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_super_admin_page.dart';
-import 'edit_agent_page.dart';
+import 'edit_super_admin_page.dart';
 import 'super_admin_profile_page.dart';
 
 class ViewSuperAdminPage extends StatefulWidget {
@@ -442,7 +442,7 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditAgentPage(agentId: superAdmin['id'].toString()),
+            EditSuperAdminPage(superAdminId: superAdmin['id'].toString()),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
