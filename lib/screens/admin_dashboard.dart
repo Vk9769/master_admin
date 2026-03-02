@@ -20,6 +20,7 @@ import 'admin_statistics_page.dart';
 import 'booths_tab_page.dart';
 import 'admins_tab_page.dart';
 import 'agents_tab_page.dart';
+import 'voters_tab_page.dart';
 
 /// Utility to format large numbers
 String formatNumber(int number) {
@@ -1054,8 +1055,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
                         /// 🔥 TOP HORIZONTAL TABS
                         _buildTopTabs(),
-
-                        const SizedBox(height: 24),
+                        
                         const SizedBox(height: 24),
 
                         /// 🔥 DYNAMIC CONTENT BASED ON TOP TAB
@@ -1070,7 +1070,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ] else if (_selectedTopTab == 4) ...[
                           const AgentsTabPage(),
                         ] else if (_selectedTopTab == 5) ...[
-                          Center(child: Text("Voters Analytics Coming Soon")),
+                          const VotersTabPage(),
                         ] else if (_selectedTopTab == 6) ...[
                           Center(child: Text("Observer Analytics Coming Soon")),
                         ] else if (_selectedTopTab == 7) ...[
