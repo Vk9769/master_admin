@@ -52,25 +52,8 @@ class AddSuperAdminPage extends StatefulWidget {
 class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // Election Selection
-  String? _selectedElection;
-  String? _selectedAreaType; // AC or WARD
-
-  String? _selectedAC;
-  String? _selectedWard;
-
-  // Example elections
-  List<String> _electionList = [
-    "Assembly Election",
-    "Municipal Election",
-    "Parliament Election",
-  ];
-
-  final List<String> _areaTypes = ['AC', 'WARD'];
-
-  List<String> _acList = ["AC 1 - South", "AC 2 - North", "AC 3 - Central"];
-
-  List<String> _wardList = ["Ward 101", "Ward 102", "Ward 103"];
+  List<Map<String, dynamic>> _elections = [];
+  String? _selectedElectionId;
 
   // Controllers
   final _firstNameCtrl = TextEditingController();
@@ -115,8 +98,31 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   void initState() {
     super.initState();
     _fetchLocationHierarchy();
+    _fetchElections();
   }
 
+  Future<void> _fetchElections() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) return;
+
+      final res = await http.get(
+        Uri.parse('$baseUrl/masteradmin/elections/active'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (res.statusCode == 200) {
+        setState(() {
+          _elections = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+        });
+      } else {
+        print("Election fetch error: ${res.body}");
+      }
+    } catch (e) {
+      print("Election fetch exception: $e");
+    }
+  }
   Future<void> _fetchLocationHierarchy() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -239,9 +245,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
     if (_selectedGender != null) filled++;
     if (_dobCtrl.text.trim().isNotEmpty) filled++;
     if (_addressCtrl.text.trim().isNotEmpty) filled++;
-    if (_selectedElection != null) filled++;
-    if (_selectedAreaType != null) filled++;
-    if (_selectedAC != null || _selectedWard != null) filled++;
+    if (_selectedElectionId != null) filled++;
     return filled / total;
   }
 
@@ -381,7 +385,24 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   }
 
   Future<void> _submit() async {
-    print("🟢 SUBMIT BUTTON CLICKED");
+    print("🟢 SUPER ADMIN SUBMIT CLICKED");
+
+    if (_selectedElectionId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select election')),
+      );
+      return;
+    }
+
+
+    if (_selectedState == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select state')),
+      );
+      return;
+    }
+
+    if (!_validateAndLog()) return;
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
@@ -392,75 +413,94 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
       return;
     }
 
-    if (!_validateAndLog()) return;
-
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      print("❌ FORM VALIDATION FAILED");
-      return;
-    }
-
-    print("🟢 FORM VALIDATION PASSED");
     setState(() => _loading = true);
 
     try {
-      final uri = Uri.parse('$baseUrl/agent');
-      final request = http.MultipartRequest('POST', uri);
+      // ✅ CORRECT ENDPOINT
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/super-admin'),
+      );
+
       request.headers['Authorization'] = 'Bearer $token';
 
+      // =========================
+      // BASIC FIELDS
+      // =========================
       request.fields['firstName'] = _firstNameCtrl.text.trim();
       request.fields['lastName'] = _lastNameCtrl.text.trim();
       request.fields['voterId'] = _voterFetched && _voterData != null
           ? _voterData!['voter_id']
           : _voterIdCtrl.text.trim();
 
-      request.fields['idType'] = 'Aadhaar';
-      request.fields['idNumber'] = _idNumberCtrl.text.trim();
-      request.fields['email'] = _emailCtrl.text.trim();
       request.fields['phone'] = _phoneCtrl.text.trim();
+      request.fields['email'] = _emailCtrl.text.trim();
       request.fields['gender'] = _selectedGender ?? '';
       request.fields['dob'] = _dobCtrl.text.trim();
       request.fields['address'] = _addressCtrl.text.trim();
-      request.fields['role'] = _fixedRole;
+
+      request.fields['idType'] = 'Aadhaar';
+      request.fields['idNumber'] = _idNumberCtrl.text.trim();
+
+      // ✅ IMPORTANT
+      request.fields['electionId'] = _selectedElectionId!;
       request.fields['state'] = _selectedState!;
 
+      // Password only for new user
       if (!_voterFetched) {
         request.fields['password'] = _passwordCtrl.text.trim();
       }
 
-      if (!_voterFetched && _pickedImage != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profilePhoto',
-            _pickedImage!.path,
-            contentType: MediaType('image', 'jpeg'),
-          ),
-        );
+      // =========================
+      // PROFILE PHOTO
+      // =========================
+      if (!_voterFetched) {
+        if (kIsWeb && _webImageBytes != null) {
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'profilePhoto',
+              _webImageBytes!,
+              filename: 'super_admin.jpg',
+              contentType: MediaType('image', 'jpeg'),
+            ),
+          );
+        } else if (!kIsWeb && _pickedImage != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'profilePhoto',
+              _pickedImage!.path,
+            ),
+          );
+        }
       }
 
-      print("🟢 SENDING API REQUEST");
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      print("🟢 CALLING SUPER ADMIN API");
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
 
       print("STATUS => ${response.statusCode}");
-      print("BODY => ${response.body}");
+      print("BODY => $responseBody");
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Agent saved successfully')),
+          const SnackBar(content: Text('Super Admin Created Successfully')),
         );
         _resetForm();
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(response.body)));
+        final data = jsonDecode(responseBody);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? "Error")),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Request failed: $e')));
-    } finally {
-      setState(() => _loading = false);
+      print("ERROR => $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Server Error')),
+      );
     }
+
+    setState(() => _loading = false);
   }
 
   @override
@@ -511,121 +551,27 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
 
                           // STEP 1 — Select Election
                           DropdownButtonFormField<String>(
-                            value: _selectedElection,
-                            decoration: const InputDecoration(
-                              labelText: 'Select Election',
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.isEmpty) {
-                                return 'Please select election';
-                              }
-                              return null;
-                            },
-                            items: _electionList.map((e) {
-                              return DropdownMenuItem(value: e, child: Text(e));
+                            value: _selectedElectionId,
+                            items: _elections.map((e) {
+                              return DropdownMenuItem(
+                                value: e['id'].toString(),
+                                child: Text(e['election_name']),
+                              );
                             }).toList(),
-                            onChanged: (value) {
+                            onChanged: (v) {
                               setState(() {
-                                _selectedElection = value;
-
-                                // reset next levels
-                                _selectedAreaType = null;
-                                _selectedAC = null;
-                                _selectedWard = null;
+                                _selectedElectionId = v;
                               });
                             },
+                            decoration: const InputDecoration(
+                              labelText: "Select Election",
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) => v == null ? 'Select election' : null,
                           ),
 
                           const SizedBox(height: 12),
 
-                          // STEP 2 — Select AC or Ward (ONLY after election selected)
-                          if (_selectedElection != null)
-                            DropdownButtonFormField<String>(
-                              value: _selectedAreaType,
-                              decoration: const InputDecoration(
-                                labelText: 'Select Area Type',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                if (_selectedElection != null &&
-                                    (v == null || v.isEmpty)) {
-                                  return 'Please select AC or Ward';
-                                }
-                                return null;
-                              },
-                              items: _areaTypes.map((type) {
-                                return DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedAreaType = value;
-                                  _selectedAC = null;
-                                  _selectedWard = null;
-                                });
-                              },
-                            ),
-
-                          const SizedBox(height: 12),
-
-                          // STEP 3 — AC List
-                          if (_selectedAreaType == 'AC')
-                            DropdownButtonFormField<String>(
-                              value: _selectedAC,
-                              decoration: const InputDecoration(
-                                labelText: 'Select AC',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                if (_selectedAreaType == 'AC' &&
-                                    (v == null || v.isEmpty)) {
-                                  return 'Please select AC';
-                                }
-                                return null;
-                              },
-                              items: _acList.map((ac) {
-                                return DropdownMenuItem(
-                                  value: ac,
-                                  child: Text(ac),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedAC = value;
-                                });
-                              },
-                            ),
-
-                          // STEP 3 — Ward List
-                          if (_selectedAreaType == 'WARD')
-                            DropdownButtonFormField<String>(
-                              value: _selectedWard,
-                              decoration: const InputDecoration(
-                                labelText: 'Select Ward',
-                                border: OutlineInputBorder(),
-                              ),
-                              validator: (v) {
-                                if (_selectedAreaType == 'WARD' &&
-                                    (v == null || v.isEmpty)) {
-                                  return 'Please select Ward';
-                                }
-                                return null;
-                              },
-                              items: _wardList.map((ward) {
-                                return DropdownMenuItem(
-                                  value: ward,
-                                  child: Text(ward),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedWard = value;
-                                });
-                              },
-                            ),
                         ],
                       ),
                     ),
