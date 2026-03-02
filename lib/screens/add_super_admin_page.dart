@@ -9,38 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Booth model from backend
-class Booth {
-  final String id;
-  final String name;
-  String address;
-  final int radiusMeters;
-  final double latitude;
-  final double longitude;
-
-  Booth({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.radiusMeters,
-    required this.latitude,
-    required this.longitude,
-  });
-
-  factory Booth.fromJson(Map<String, dynamic> json) {
-    return Booth(
-      id: json['id'].toString(),
-      name: json['name'] ?? '',
-      address: json['address'] ?? '',
-      radiusMeters: (json['radius_meters'] ?? 100).toInt(),
-      latitude: (json['latitude'] ?? 0).toDouble(),
-      longitude: (json['longitude'] ?? 0).toDouble(),
-    );
-  }
-
-  @override
-  String toString() => '$name ($id)';
-}
 
 class AddSuperAdminPage extends StatefulWidget {
   const AddSuperAdminPage({super.key});
@@ -73,7 +41,6 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
 
   // State
   bool _obscurePassword = true;
-  Booth? _selectedBooth;
   bool _loading = false;
   String? _existingProfilePhotoUrl;
 
@@ -81,14 +48,9 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   bool _searchingVoter = false;
   bool _voterFetched = false;
   Map<String, dynamic>? _voterData;
-  static const String _fixedRole = 'AGENT';
 
   static const String baseUrl =
       "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com";
-
-  String? _selectedIdType;
-  Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>
-  locationHierarchy = {};
 
   List<String> _states = [];
 
@@ -97,7 +59,6 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
   @override
   void initState() {
     super.initState();
-    _fetchLocationHierarchy();
     _fetchElections();
   }
 
@@ -123,65 +84,30 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
       print("Election fetch exception: $e");
     }
   }
-  Future<void> _fetchLocationHierarchy() async {
+  Future<void> _fetchStatesByElection(String electionId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString("token");
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse('$baseUrl/masteradmin/booths'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
+        Uri.parse(
+            "$baseUrl/api/common/election-states?election_id=$electionId"),
+        headers: {"Authorization": "Bearer $token"},
       );
 
-      if (response.statusCode != 200) {
-        print("Error: ${response.body}");
-        return;
-      }
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
 
-      final List data = json.decode(response.body);
-
-      print("API DATA LENGTH: ${data.length}");
-      print("First Item: ${data.isNotEmpty ? data[0] : 'No Data'}");
-
-      Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>> temp =
-          {};
-
-      for (var booth in data) {
-        final state = booth['state']?.toString().trim() ?? '';
-        final district = booth['district']?.toString().trim() ?? '';
-        final assembly =
-            booth['assembly_constituency']?.toString().trim() ?? '';
-        final part = booth['part_name']?.toString().trim() ?? '';
-        final boothId = booth['id']?.toString();
-        final boothName = booth['name']?.toString() ?? 'Unknown Booth';
-
-        if (state.isEmpty) continue;
-
-        temp[state] ??= {};
-        temp[state]![district] ??= {};
-        temp[state]![district]![assembly] ??= [];
-
-        // Store full booth info
-        temp[state]![district]![assembly]!.add({
-          "id": boothId,
-          "name": boothName,
-          "part_name": part,
+        setState(() {
+          _states = List<String>.from(data);
+          _selectedState = null;
         });
+      } else {
+        debugPrint("State API error: ${response.body}");
       }
-
-      setState(() {
-        locationHierarchy = temp;
-        _states = temp.keys.toList()..sort();
-
-        // 🔒 reset dependent selections
-        _selectedState = null;
-      });
     } catch (e) {
-      print("Fetch error => $e");
+      debugPrint("State fetch error: $e");
     }
   }
 
@@ -321,7 +247,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
       final state = data['state'];
 
       // STATE
-      if (state != null && locationHierarchy.containsKey(state)) {
+      if (state != null && _states.contains(state)) {
         _selectedState = state;
       }
 
@@ -561,7 +487,13 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
                             onChanged: (v) {
                               setState(() {
                                 _selectedElectionId = v;
+                                _selectedState = null;
+                                _states = [];
                               });
+
+                              if (v != null) {
+                                _fetchStatesByElection(v);
+                              }
                             },
                             decoration: const InputDecoration(
                               labelText: "Select Election",
@@ -982,7 +914,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
                               Icon(Icons.assignment_ind, color: Colors.blue),
                               SizedBox(width: 8),
                               Text(
-                                'Role & Booth Assignment',
+                                'Role & State Assignment',
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -995,7 +927,7 @@ class _AddSuperAdminPageState extends State<AddSuperAdminPage> {
                           const SizedBox(height: 6),
 
                           const Text(
-                            'Please select role and exact polling location carefully',
+                            'Please select role and exact election and state to assign this super admin carefully',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.black54,

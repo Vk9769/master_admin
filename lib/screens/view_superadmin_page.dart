@@ -49,12 +49,11 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
 
     _loadAdminData();
     _loadElections();
-
     _isLoading = false; // 🔥 Important
   }
 
   String? _selectedState;
-  List<String> _states = ["Maharashtra", "Gujarat", "Karnataka"];
+  List<String> _states = [];
 
   @override
   void dispose() {
@@ -92,6 +91,30 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
     }
   }
 
+  Future<void> _fetchStatesByElection(int electionId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/common/election-states?election_id=$electionId"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          _states = List<String>.from(data);
+          _selectedState = null;
+        });
+      }
+    } catch (e) {
+      debugPrint("State fetch error: $e");
+    }
+  }
+
   Future<void> _loadSuperAdmins() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -109,7 +132,7 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
 
       // ✅ ADD HERE
       String url =
-          "$baseUrl/superadmin/list?election_id=$electionId&state=$_selectedState";
+          "$baseUrl/super-admin/list?election_id=$electionId&state=$_selectedState";
 
       final response = await http.get(
         Uri.parse(url),
@@ -142,10 +165,12 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("token");
 
-      if (_selectedElectionId == null) return;
-
+      if (_selectedElectionId == null || _selectedState == null) return;
+      print("COUNT API → election=$_selectedElectionId state=$_selectedState");
       final response = await http.get(
-        Uri.parse("$baseUrl/superadmin/counts/$_selectedElectionId"),
+        Uri.parse(
+            "$baseUrl/super-admin/counts?election_id=$_selectedElectionId&state=$_selectedState"
+        ),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -153,12 +178,12 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
         final data = jsonDecode(response.body);
 
         if (!mounted) return;
-
+        print("COUNT RESPONSE => ${response.body}");
         setState(() {
-          _totalCount = data['total'] ?? 0;
-          _approvedCount = data['approved'] ?? 0;
-          _pendingCount = data['pending'] ?? 0;
-          _rejectedCount = data['rejected'] ?? 0;
+          _totalCount = int.parse(data['total'].toString());
+          _approvedCount = int.parse(data['approved'].toString());
+          _pendingCount = int.parse(data['pending'].toString());
+          _rejectedCount = int.parse(data['rejected'].toString());
         });
       }
     } catch (e) {
@@ -508,12 +533,6 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
             ),
 
             const SizedBox(height: 4),
-
-            // 🔥 Booth Name
-            Text(
-              'Booth: ${superAdmin['booth_name'] ?? 'N/A'}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-            ),
           ],
         ),
         onTap: () => _viewSuperAdminDetails(superAdmin),
@@ -636,8 +655,13 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
               onChanged: (value) {
                 setState(() {
                   _selectedElectionId = value;
-                  _selectedState = null; // reset state
+                  _selectedState = null;
+                  _states = [];
                 });
+
+                if (value != null) {
+                  _fetchStatesByElection(value);
+                }
               },
               decoration: InputDecoration(
                 labelText: "Select Election",
@@ -682,7 +706,7 @@ class _ViewSuperAdminPageState extends State<ViewSuperAdminPage>
               ),
             ),
 
-          if (_selectedElectionId != null)
+          if (_selectedElectionId != null && _selectedState != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
