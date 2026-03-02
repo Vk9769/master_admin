@@ -6,18 +6,18 @@ import 'add_admin_page.dart';
 import 'edit_agent_page.dart';
 import 'agent_profile_page.dart';
 
-class ViewAdminPage extends StatefulWidget {
-  const ViewAdminPage({Key? key}) : super(key: key);
+class ViewObserverPage extends StatefulWidget {
+  const ViewObserverPage({Key? key}) : super(key: key);
 
   @override
-  State<ViewAdminPage> createState() => _ViewAdminPageState();
+  State<ViewObserverPage> createState() => _ViewObserverPageState();
 }
 
-class _ViewAdminPageState extends State<ViewAdminPage>
+class _ViewObserverPageState extends State<ViewObserverPage>
     with TickerProviderStateMixin {
   List<Map<String, dynamic>> _admins = [];
   String? _adminName;
-  bool _isLoading = false;
+  bool _isLoading = true;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   final String baseUrl =
@@ -750,7 +750,13 @@ class _ViewAdminPageState extends State<ViewAdminPage>
 
           // 🔥 MAIN CONTENT
           Expanded(
-            child: _selectedElectionId == null
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.blue.shade700,
+                    ),
+                  )
+                : _selectedElectionId == null
                 ? Center(
                     child: Text(
                       "Please select an election",
@@ -760,30 +766,14 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                       ),
                     ),
                   )
-                : _selectedState == null
+                : _selectedState == null || _selectedDistrict == null
                 ? Center(
                     child: Text(
-                      "Please select state",
+                      "Please select state and district",
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.grey.shade600,
                       ),
-                    ),
-                  )
-                : _selectedDistrict == null
-                ? Center(
-                    child: Text(
-                      "Please select district",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  )
-                : _isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.blue.shade700,
                     ),
                   )
                 : _admins.isEmpty
@@ -798,7 +788,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No Admins Found',
+                          'No Admins Yet',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -807,7 +797,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'No admins available for selected filters',
+                          'Add your first admin to get started',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade500,

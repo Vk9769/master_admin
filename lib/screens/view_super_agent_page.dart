@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'add_admin_page.dart';
+import 'add_super_agent_page.dart';
 import 'edit_agent_page.dart';
 import 'agent_profile_page.dart';
 
-class ViewAdminPage extends StatefulWidget {
-  const ViewAdminPage({Key? key}) : super(key: key);
+class ViewSuperAgentPage extends StatefulWidget {
+  const ViewSuperAgentPage({Key? key}) : super(key: key);
 
   @override
-  State<ViewAdminPage> createState() => _ViewAdminPageState();
+  State<ViewSuperAgentPage> createState() => _ViewSuperAgentPageState();
 }
 
-class _ViewAdminPageState extends State<ViewAdminPage>
+class _ViewSuperAgentPageState extends State<ViewSuperAgentPage>
     with TickerProviderStateMixin {
-  List<Map<String, dynamic>> _admins = [];
+  List<Map<String, dynamic>> _superAgents = [];
   String? _adminName;
-  bool _isLoading = false;
+  bool _isLoading = true;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   final String baseUrl =
@@ -25,13 +25,22 @@ class _ViewAdminPageState extends State<ViewAdminPage>
   List<Map<String, dynamic>> _elections = [];
   int? _selectedElectionId;
 
+  String? _selectedAreaType;
+
+  String? _selectedWard;
+  String? _selectedAssembly;
+
+  List<String> _wardList = [];
+
+  final List<String> _areaTypes = ['AC', 'WARD'];
+
   int _totalCount = 0;
   int _approvedCount = 0;
   int _pendingCount = 0;
   int _rejectedCount = 0;
 
   String _selectedFilter = "all";
-  List<Map<String, dynamic>> _filteredAdmins = [];
+  List<Map<String, dynamic>> _filteredSuperAgents = [];
 
   @override
   void initState() {
@@ -49,18 +58,9 @@ class _ViewAdminPageState extends State<ViewAdminPage>
 
     _loadAdminData();
     _loadElections();
+
+    _isLoading = false; // 🔥 Important
   }
-
-  String? _selectedState;
-  String? _selectedDistrict;
-
-  List<String> _states = ["Maharashtra", "Gujarat", "Karnataka"];
-
-  Map<String, List<String>> _districts = {
-    "Maharashtra": ["Mumbai", "Pune", "Nashik"],
-    "Gujarat": ["Ahmedabad", "Surat"],
-    "Karnataka": ["Bangalore", "Mysore"],
-  };
 
   @override
   void dispose() {
@@ -98,17 +98,14 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     }
   }
 
-  Future<void> _loadAdmins() async {
+  Future<void> _loadSuperAgents() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("token");
 
       if (token == null) return;
 
-      if (_selectedElectionId == null ||
-          _selectedState == null ||
-          _selectedDistrict == null)
-        return;
+      if (_selectedElectionId == null || _selectedAreaType == null) return;
 
       setState(() {
         _isLoading = true;
@@ -118,7 +115,15 @@ class _ViewAdminPageState extends State<ViewAdminPage>
 
       // ✅ ADD HERE
       String url =
-          "$baseUrl/admin/list?election_id=$electionId&state=$_selectedState&district=$_selectedDistrict";
+          "$baseUrl/superagent/list?election_id=$electionId&area_type=$_selectedAreaType";
+
+      if (_selectedAreaType == "WARD" && _selectedWard != null) {
+        url += "&ward_id=$_selectedWard";
+      }
+
+      if (_selectedAreaType == "AC" && _selectedAssembly != null) {
+        url += "&assembly=$_selectedAssembly";
+      }
 
       final response = await http.get(
         Uri.parse(url),
@@ -129,7 +134,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
         final List data = jsonDecode(response.body);
 
         setState(() {
-          _admins = List<Map<String, dynamic>>.from(data);
+          _superAgents = List<Map<String, dynamic>>.from(data);
           _applyFilter();
           _isLoading = false;
         });
@@ -142,7 +147,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       }
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint("Error loading admins: $e");
+      debugPrint("Error loading super agents: $e");
     }
   }
 
@@ -154,9 +159,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       if (_selectedElectionId == null) return;
 
       final response = await http.get(
-        Uri.parse(
-          "$baseUrl/admin/counts/$_selectedElectionId?state=$_selectedState&district=$_selectedDistrict",
-        ),
+        Uri.parse("$baseUrl/superagent/counts/$_selectedElectionId"),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -177,27 +180,47 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     }
   }
 
+  Future<void> _loadWards() async {
+    if (_selectedElectionId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/api/wards?election_id=$_selectedElectionId"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _wardList = data.map((e) => "${e['id']}|${e['ward_name']}").toList();
+      });
+    }
+  }
+
   void _applyFilter() {
     if (_selectedFilter == "all") {
-      _filteredAdmins = _admins;
+      _filteredSuperAgents = _superAgents;
     } else {
-      _filteredAdmins = _admins.where((c) {
+      _filteredSuperAgents = _superAgents.where((c) {
         return (c['nomination_status'] ?? "pending").toString().toLowerCase() ==
             _selectedFilter;
       }).toList();
     }
   }
 
-  Future<void> _saveAdmins() async {
+  Future<void> _saveSuperAgents() async {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('admins_list', json.encode(_admins));
+      await prefs.setString('superagents_list', json.encode(_superAgents));
     } catch (e) {
-      debugPrint('Error saving admins: $e');
+      debugPrint('Error saving super agents: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Error saving admin'),
+            content: const Text('Error saving super agent'),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -205,15 +228,15 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     }
   }
 
-  void _addAdmin(Map<String, dynamic> newAdmin) {
+  void _addSuperAgent(Map<String, dynamic> newSuperAgent) {
     setState(() {
-      _admins.add(newAdmin);
+      _superAgents.add(newSuperAgent);
     });
-    _saveAdmins();
+    _saveSuperAgents();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Admin added successfully'),
+          content: const Text('Super  Agent added successfully'),
           backgroundColor: Colors.green.shade700,
           duration: const Duration(seconds: 2),
         ),
@@ -221,15 +244,15 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     }
   }
 
-  void _editAdmin(int index, Map<String, dynamic> updatedAdmin) {
+  void _editSuperAgent(int index, Map<String, dynamic> updatedSuperAgent) {
     setState(() {
-      _admins[index] = updatedAdmin;
+      _superAgents[index] = updatedSuperAgent;
     });
-    _saveAdmins();
+    _saveSuperAgents();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Admin updated successfully'),
+          content: const Text('Super Agent updated successfully'),
           backgroundColor: Colors.blue.shade700,
           duration: const Duration(seconds: 2),
         ),
@@ -237,10 +260,11 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     }
   }
 
-  Future<void> _deleteAdmin(int index) async {
-    final admin = _admins[index];
-    final adminId = admin['id'];
-    final adminName = "${admin['first_name']} ${admin['last_name'] ?? ''}";
+  Future<void> _deleteSuperAgent(int index) async {
+    final superagent = _superAgents[index];
+    final superagentId = superagent['id'];
+    final superagentName =
+        "${superagent['first_name']} ${superagent['last_name'] ?? ''}";
 
     showDialog(
       context: context,
@@ -282,7 +306,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Delete Admin?',
+                  'Delete Super Agent?',
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -291,7 +315,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Are you sure you want to remove $adminName?',
+                  'Are you sure you want to remove $superagentName?',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
                 ),
@@ -339,19 +363,21 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                             final token = prefs.getString("token");
 
                             final response = await http.delete(
-                              Uri.parse("$baseUrl/admin/delete/$adminId"),
+                              Uri.parse(
+                                "$baseUrl/superagent/delete/$superagentId",
+                              ),
                               headers: {"Authorization": "Bearer $token"},
                             );
 
                             if (response.statusCode == 200) {
                               setState(() {
-                                _admins.removeAt(index);
+                                _superAgents.removeAt(index);
                               });
 
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    "$adminName deleted successfully",
+                                    "$superagentName deleted successfully",
                                   ),
                                   backgroundColor: Colors.red.shade700,
                                 ),
@@ -392,12 +418,12 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     );
   }
 
-  void _navigateToAddAdmin() async {
+  void _navigateToAddSuperAgent() async {
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const AddAdminPage(),
+            const AddSuperAgentPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
@@ -412,15 +438,18 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       ),
     );
 
-    _loadAdmins(); // 🔥 Refresh from backend
+    _loadSuperAgents(); // 🔥 Refresh from backend
   }
 
-  void _navigateToEditAdmin(Map<String, dynamic> admin, int index) async {
+  void _navigateToEditSuperAgent(
+    Map<String, dynamic> superagent,
+    int index,
+  ) async {
     final result = await Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditAgentPage(agentId: admin['id'].toString()),
+            EditAgentPage(agentId: superagent['id'].toString()),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
@@ -434,15 +463,15 @@ class _ViewAdminPageState extends State<ViewAdminPage>
         },
       ),
     );
-    _loadAdmins(); // 🔥 Refresh
+    _loadSuperAgents(); // 🔥 Refresh
   }
 
-  void _viewAdminDetails(Map<String, dynamic> admin) {
+  void _viewAgentDetails(Map<String, dynamic> agent) {
     Navigator.push(
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            AgentProfilePage(agentId: admin['id']),
+            AgentProfilePage(agentId: agent['id']),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
@@ -461,13 +490,13 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     );
   }
 
-  Widget _buildAdminCard(Map<String, dynamic> admin, int index) {
+  Widget _buildSuperAgentCard(Map<String, dynamic> superagent, int index) {
     ImageProvider? displayImage;
 
-    if (admin['profile_photo'] != null) {
-      displayImage = NetworkImage(admin['profile_photo']);
-    } else if (admin['image'] != null && admin['image'].isNotEmpty) {
-      displayImage = MemoryImage(base64Decode(admin['image']));
+    if (superagent['profile_photo'] != null) {
+      displayImage = NetworkImage(superagent['profile_photo']);
+    } else if (superagent['image'] != null && superagent['image'].isNotEmpty) {
+      displayImage = MemoryImage(base64Decode(superagent['image']));
     }
 
     return Card(
@@ -481,7 +510,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
           horizontal: 16,
         ),
         leading: Hero(
-          tag: "admin${admin['id']}",
+          tag: "superagent_${superagent['id']}",
           child: CircleAvatar(
             radius: 28,
             backgroundColor: Colors.blue.shade100,
@@ -492,7 +521,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
           ),
         ),
         title: Text(
-          "${admin['first_name']} ${admin['last_name'] ?? ''}",
+          "${superagent['first_name']} ${superagent['last_name'] ?? ''}",
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -504,23 +533,32 @@ class _ViewAdminPageState extends State<ViewAdminPage>
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 🔥 Show selected WARD name
+            if (_selectedAreaType == 'WARD')
+              Text(
+                'Ward: ${_wardList.firstWhere((w) => w.startsWith("$_selectedWard|"), orElse: () => "|N/A").split("|")[1]}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              ),
+
+            // 🔥 Show selected AC name
+            if (_selectedAreaType == 'AC')
+              Text(
+                'AC: ${_selectedAssembly ?? 'N/A'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+              ),
+
+            // 🔥 Booth Name FULL (no dots)
             Text(
-              'State: ${_selectedState ?? "N/A"}',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'District: ${_selectedDistrict ?? "N/A"}',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Booth: ${admin['booth_name'] ?? 'N/A'}',
+              'Booth: ${superagent['booth_name'] ?? 'N/A'}',
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),
           ],
         ),
-        onTap: () => _viewAdminDetails(admin),
+        onTap: () => _viewAgentDetails(superagent),
         trailing: PopupMenuButton<String>(
           color: Colors.white,
           shape: RoundedRectangleBorder(
@@ -529,9 +567,9 @@ class _ViewAdminPageState extends State<ViewAdminPage>
           icon: Icon(Icons.more_vert, color: Colors.blue.shade700),
           onSelected: (value) {
             if (value == 'edit') {
-              _navigateToEditAdmin(admin, index);
+              _navigateToEditSuperAgent(superagent, index);
             } else if (value == 'delete') {
-              _deleteAdmin(index);
+              _deleteSuperAgent(index);
             }
           },
           itemBuilder: (context) => [
@@ -615,7 +653,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
         elevation: 3,
         centerTitle: true,
         title: Text(
-          'Admin Management',
+          'Welcome, $_adminName',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -640,8 +678,10 @@ class _ViewAdminPageState extends State<ViewAdminPage>
               onChanged: (value) {
                 setState(() {
                   _selectedElectionId = value;
-                  _selectedState = null; // reset state
+                  _selectedAreaType = null; // 🔥 reset
                 });
+
+                _loadSuperAgents(); // 🔥 Load super agents when election changes
               },
               decoration: InputDecoration(
                 labelText: "Select Election",
@@ -658,23 +698,33 @@ class _ViewAdminPageState extends State<ViewAdminPage>
             ),
           ),
 
+          // 🔥 AREA TYPE DROPDOWN (AC / WARD)
           if (_selectedElectionId != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: Colors.white,
               child: DropdownButtonFormField<String>(
-                value: _selectedState,
-                items: _states.map((state) {
-                  return DropdownMenuItem(value: state, child: Text(state));
+                value: _selectedAreaType,
+                items: _areaTypes.map((type) {
+                  return DropdownMenuItem<String>(
+                    value: type,
+                    child: Text(type),
+                  );
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _selectedState = value;
-                    _selectedDistrict = null; // reset district
+                    _selectedAreaType = value;
+                    _selectedWard = null;
+                    _selectedAssembly = null;
                   });
+
+                  if (value == "WARD") {
+                    _loadWards(); // load ward list
+                  }
                 },
+
                 decoration: InputDecoration(
-                  labelText: "Select State",
+                  labelText: "Select Area Type",
                   prefixIcon: Icon(Icons.map, color: Colors.blue.shade700),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -685,41 +735,38 @@ class _ViewAdminPageState extends State<ViewAdminPage>
               ),
             ),
 
-          if (_selectedState != null)
+          // 🔥 WARD LIST
+          if (_selectedAreaType == "WARD")
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: Colors.white,
               child: DropdownButtonFormField<String>(
-                value: _selectedDistrict,
-                items: (_districts[_selectedState] ?? []).map((district) {
+                value: _selectedWard,
+                items: _wardList.map((w) {
+                  final parts = w.split("|");
                   return DropdownMenuItem(
-                    value: district,
-                    child: Text(district),
+                    value: parts[0],
+                    child: Text(parts[1]),
                   );
                 }).toList(),
                 onChanged: (value) {
                   setState(() {
-                    _selectedDistrict = value;
+                    _selectedWard = value;
                   });
 
-                  _loadAdmins();
+                  _loadSuperAgents(); // load after ward select
                 },
                 decoration: InputDecoration(
-                  labelText: "Select District",
-                  prefixIcon: Icon(
-                    Icons.location_city,
-                    color: Colors.blue.shade700,
-                  ),
+                  labelText: "Select Ward",
+                  prefixIcon: Icon(Icons.location_city, color: Colors.blue),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  filled: true,
-                  fillColor: Colors.blue.shade50,
                 ),
               ),
             ),
 
-          if (_selectedElectionId != null && _selectedDistrict != null)
+          if (_selectedElectionId != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -750,7 +797,13 @@ class _ViewAdminPageState extends State<ViewAdminPage>
 
           // 🔥 MAIN CONTENT
           Expanded(
-            child: _selectedElectionId == null
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.blue.shade700,
+                    ),
+                  )
+                : _selectedElectionId == null
                 ? Center(
                     child: Text(
                       "Please select an election",
@@ -760,33 +813,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                       ),
                     ),
                   )
-                : _selectedState == null
-                ? Center(
-                    child: Text(
-                      "Please select state",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  )
-                : _selectedDistrict == null
-                ? Center(
-                    child: Text(
-                      "Please select district",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  )
-                : _isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.blue.shade700,
-                    ),
-                  )
-                : _admins.isEmpty
+                : _superAgents.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -798,7 +825,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No Admins Found',
+                          'No Super Agents Yet',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -807,7 +834,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'No admins available for selected filters',
+                          'Add your first super agent to get started',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade500,
@@ -826,14 +853,16 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                         ).chain(CurveTween(curve: Curves.easeInOutCubic)),
                       ),
                       child: RefreshIndicator(
-                        onRefresh: _loadAdmins,
+                        onRefresh: _loadSuperAgents,
                         backgroundColor: Colors.white,
                         color: Colors.blue.shade700,
                         child: ListView.builder(
                           padding: const EdgeInsets.all(12),
-                          itemCount: _filteredAdmins.length,
-                          itemBuilder: (context, index) =>
-                              _buildAdminCard(_filteredAdmins[index], index),
+                          itemCount: _filteredSuperAgents.length,
+                          itemBuilder: (context, index) => _buildSuperAgentCard(
+                            _filteredSuperAgents[index],
+                            index,
+                          ),
                         ),
                       ),
                     ),
@@ -844,11 +873,11 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.blue.shade700,
         elevation: 5,
-        onPressed: _navigateToAddAdmin,
+        onPressed: _navigateToAddSuperAgent,
 
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
-          'Add Admin',
+          'Add Super Agent',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),

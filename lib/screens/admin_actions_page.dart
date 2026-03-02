@@ -8,10 +8,12 @@ import 'view_election_page.dart';
 import 'election_declaration_page.dart';
 import 'view_superadmin_page.dart';
 import 'view_all_admins_page.dart';
-import 'add_super_agent_page.dart';
+import 'view_super_agent_page.dart';
 import 'add_ward_page.dart';
 import 'manage_booths_page.dart';
 import 'allocate_booths.dart';
+import 'view_all_observer_page.dart';
+import 'view_all_campaigner_page.dart';
 
 class AdminActionsPage extends StatefulWidget {
   const AdminActionsPage({super.key});
@@ -301,7 +303,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AddSuperAgentPage(),
+                                builder: (_) => const ViewSuperAgentPage(),
                               ),
                             ),
                           ),
@@ -329,7 +331,47 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             ),
                           ),
                         ),
+
                         const SizedBox(width: 16),
+
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            14,
+                            Icons.visibility,
+                            'Manage Observers',
+                            'View, edit and manage observers',
+                            Colors.purple,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ViewObserverPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
+                        Expanded(
+                          child: _buildActionCard(
+                            context,
+                            15,
+                            Icons.campaign,
+                            'Manage Campaigners',
+                            'View, edit and manage campaigners',
+                            Colors.amber,
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ViewCampaignerPage(),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 16),
+
                         Expanded(
                           child: _buildActionCard(
                             context,
@@ -532,7 +574,7 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AddSuperAgentPage(),
+                          builder: (_) => const ViewSuperAgentPage(),
                         ),
                       ),
                     ),
@@ -554,6 +596,41 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      14,
+                      Icons.visibility,
+                      'Manage Observers',
+                      'View, edit and manage observers',
+                      Colors.purple,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ViewObserverPage(),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _buildActionCard(
+                      context,
+                      15,
+                      Icons.campaign,
+                      'Manage Campaigners',
+                      'View, edit and manage campaigners',
+                      Colors.amber,
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ViewCampaignerPage(),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
                     _buildActionCard(
                       context,
                       6,
