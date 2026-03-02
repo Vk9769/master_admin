@@ -6,8 +6,8 @@ import 'view_all_voters.dart';
 import 'view_candidate.dart';
 import 'view_election_page.dart';
 import 'election_declaration_page.dart';
-import 'add_super_admin_page.dart';
-import 'add_admin_page.dart';
+import 'view_superadmin_page.dart';
+import 'view_all_admins_page.dart';
 import 'add_super_agent_page.dart';
 import 'add_ward_page.dart';
 import 'manage_booths_page.dart';
@@ -243,8 +243,8 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             1, // same index is OK
                             Icons.how_to_vote,
-                            'View Candidates',
-                            'Manage candidate information',
+                            'Manage Candidates',
+                            'View, edit and manage candidates',
                             Colors.blue,
                             () => Navigator.push(
                               context,
@@ -261,13 +261,13 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             8,
                             Icons.admin_panel_settings,
-                            'Add Super Admin',
-                            'Create system super administrator',
+                            'Manage Super Admins',
+                            'View, edit and manage super admins',
                             Colors.redAccent,
                             () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AddSuperAdminPage(),
+                                builder: (_) => const ViewSuperAdminPage(),
                               ),
                             ),
                           ),
@@ -278,13 +278,13 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             9,
                             Icons.manage_accounts,
-                            'Add Admin',
-                            'Create election administrator',
+                            'Manage Admins',
+                            'View, edit and manage election administrators',
                             Colors.blueGrey,
                             () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AddAdminPage(),
+                                builder: (_) => const ViewAdminPage(),
                               ),
                             ),
                           ),
@@ -295,8 +295,8 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                             context,
                             10,
                             Icons.supervisor_account,
-                            'Add Super Agent',
-                            'Create senior polling agent',
+                            'Manage Super Agents',
+                            'View, edit and manage senior polling agents',
                             Colors.deepOrange,
                             () => Navigator.push(
                               context,
@@ -475,8 +475,8 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       1,
                       Icons.how_to_vote,
-                      'View Candidates',
-                      'Manage candidate information',
+                      'Manage Candidates',
+                      'View, edit and manage candidates',
                       Colors.blue,
                       () => Navigator.push(
                         context,
@@ -492,13 +492,13 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       8,
                       Icons.admin_panel_settings,
-                      'Add Super Admin',
-                      'Create system super administrator',
+                      'Manage Super Admins',
+                      'View, edit and manage super admins',
                       Colors.redAccent,
                       () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const AddSuperAdminPage(),
+                          builder: (_) => const ViewSuperAdminPage(),
                         ),
                       ),
                     ),
@@ -509,12 +509,14 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       9,
                       Icons.manage_accounts,
-                      'Add Admin',
-                      'Create election administrator',
+                      'Manage Admins',
+                      'View, edit and manage election administrators',
                       Colors.blueGrey,
                       () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const AddAdminPage()),
+                        MaterialPageRoute(
+                          builder: (_) => const ViewAdminPage(),
+                        ),
                       ),
                     ),
 
@@ -524,8 +526,8 @@ class _AdminActionsPageState extends State<AdminActionsPage> {
                       context,
                       10,
                       Icons.supervisor_account,
-                      'Add Super Agent',
-                      'Create senior polling agent',
+                      'Manage Super Agents',
+                      'View, edit and manage senior polling agents',
                       Colors.deepOrange,
                       () => Navigator.push(
                         context,

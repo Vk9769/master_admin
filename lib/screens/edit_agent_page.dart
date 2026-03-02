@@ -591,10 +591,7 @@ class _EditAgentPageState extends State<EditAgentPage> {
         );
       } else if (!kIsWeb && _pickedImage != null) {
         request.files.add(
-          await http.MultipartFile.fromPath(
-            'profilePhoto',
-            _pickedImage!.path,
-          ),
+          await http.MultipartFile.fromPath('profilePhoto', _pickedImage!.path),
         );
       }
 
@@ -1402,7 +1399,6 @@ class _EditAgentPageState extends State<EditAgentPage> {
                           ],
                           const SizedBox(height: 16),
 
-                          // 🏘️ MUNICIPAL – WARD BOOTHS
                           // 🏘️ MUNICIPAL – WARD BOOTHS
                           if (_selectedAreaType == "WARD" &&
                               _selectedWard != null)

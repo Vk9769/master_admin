@@ -185,37 +185,28 @@ class _VotersTabPageState extends State<VotersTabPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with gradient
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [const Color(0xFF2563EB), const Color(0xFF1E40AF)],
+            /// HEADER (Same style as Booth Tab)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Voter Management",
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[900],
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Voter Management',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 26,
-                    ),
+                const SizedBox(height: 8),
+                Text(
+                  "Monitor and manage registered voters across all booths",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Monitor and manage all registered voters',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 32),
             // Stats cards
@@ -223,44 +214,42 @@ class _VotersTabPageState extends State<VotersTabPage>
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  GridView.count(
-                    crossAxisCount: MediaQuery.of(context).size.width > 1200
-                        ? 4
-                        : MediaQuery.of(context).size.width > 800
-                        ? 2
-                        : 1,
-                    mainAxisSpacing: 20,
-                    crossAxisSpacing: 20,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+                  Row(
                     children: [
-                      _buildStatsCard(
-                        title: 'Total Voters',
-                        value: getTotalVoters().toString(),
-                        icon: Icons.people,
-                        color: const Color(0xFF2563EB),
-                        backgroundColor: const Color(0xFFEFF6FF),
+                      Expanded(
+                        child: _kpiCard(
+                          "Total Voters",
+                          getTotalVoters().toString(),
+                          Icons.people,
+                          Colors.blue,
+                        ),
                       ),
-                      _buildStatsCard(
-                        title: 'Verified Voters',
-                        value: getVerifiedVoters().toString(),
-                        icon: Icons.verified_user,
-                        color: const Color(0xFF10B981),
-                        backgroundColor: const Color(0xFFECFDF5),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _kpiCard(
+                          "Verified",
+                          getVerifiedVoters().toString(),
+                          Icons.verified_user,
+                          Colors.green,
+                        ),
                       ),
-                      _buildStatsCard(
-                        title: 'Unverified',
-                        value: getUnverifiedVoters().toString(),
-                        icon: Icons.person_off,
-                        color: const Color(0xFFF59E0B),
-                        backgroundColor: const Color(0xFFFEF3C7),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _kpiCard(
+                          "Unverified",
+                          getUnverifiedVoters().toString(),
+                          Icons.person_off,
+                          Colors.orange,
+                        ),
                       ),
-                      _buildStatsCard(
-                        title: 'Voter Turnout',
-                        value: '${getVoterTurnout().toStringAsFixed(1)}%',
-                        icon: Icons.how_to_vote,
-                        color: const Color(0xFF8B5CF6),
-                        backgroundColor: const Color(0xFFF3E8FF),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _kpiCard(
+                          "Turnout",
+                          "${getVoterTurnout().toStringAsFixed(1)}%",
+                          Icons.how_to_vote,
+                          Colors.purple,
+                        ),
                       ),
                     ],
                   ),
@@ -536,6 +525,55 @@ class _VotersTabPageState extends State<VotersTabPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _kpiCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey[200]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

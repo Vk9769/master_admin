@@ -222,7 +222,7 @@ class _AddAdminPageState extends State<AddAdminPage> {
       return NetworkImage(_existingProfilePhotoUrl!);
     }
 
-    return const AssetImage("admin_avatar.png");
+    return const AssetImage("assets/admin_avatar.png");
   }
 
   double get _formCompletion {
