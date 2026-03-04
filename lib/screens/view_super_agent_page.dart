@@ -653,7 +653,7 @@ class _ViewSuperAgentPageState extends State<ViewSuperAgentPage>
         elevation: 3,
         centerTitle: true,
         title: Text(
-          'Welcome, $_adminName',
+          'Super Agent Management',
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,

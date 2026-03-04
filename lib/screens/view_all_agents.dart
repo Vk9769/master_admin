@@ -29,8 +29,10 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
 
   String? _selectedWard;
   String? _selectedAssembly;
+  String? _selectedBooth; // 🔥 ADD THIS
 
   List<String> _wardList = [];
+  List<String> _boothList = []; // 🔥 ADD THIS
 
   final List<String> _areaTypes = ['AC', 'WARD'];
 
@@ -119,6 +121,10 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
 
       if (_selectedAreaType == "WARD" && _selectedWard != null) {
         url += "&ward_id=$_selectedWard";
+
+        if (_selectedBooth != null) {
+          url += "&booth_id=$_selectedBooth";
+        }
       }
 
       if (_selectedAreaType == "AC" && _selectedAssembly != null) {
@@ -196,6 +202,26 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
 
       setState(() {
         _wardList = data.map((e) => "${e['id']}|${e['ward_name']}").toList();
+      });
+    }
+  }
+
+  Future<void> _loadBooths() async {
+    if (_selectedWard == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString("token");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/api/booths?ward_id=$_selectedWard"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+
+      setState(() {
+        _boothList = data.map((e) => "${e['id']}|${e['booth_name']}").toList();
       });
     }
   }
@@ -746,13 +772,46 @@ class _AdminAgentsPageState extends State<AdminAgentsPage>
                 onChanged: (value) {
                   setState(() {
                     _selectedWard = value;
+                    _selectedBooth = null;
                   });
 
-                  _loadAgents(); // load after ward select
+                  _loadBooths(); // 🔥 LOAD BOOTHS
+                  _loadAgents();
                 },
                 decoration: InputDecoration(
                   labelText: "Select Ward",
                   prefixIcon: Icon(Icons.location_city, color: Colors.blue),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+
+          // 🔥 BOOTH LIST (OPTIONAL)
+          if (_selectedAreaType == "WARD" && _selectedWard != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.white,
+              child: DropdownButtonFormField<String>(
+                value: _selectedBooth,
+                items: _boothList.map((b) {
+                  final parts = b.split("|");
+                  return DropdownMenuItem(
+                    value: parts[0],
+                    child: Text(parts[1]),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedBooth = value;
+                  });
+
+                  _loadAgents(); // 🔥 Load agents by booth
+                },
+                decoration: InputDecoration(
+                  labelText: "Select Booth (Optional)",
+                  prefixIcon: Icon(Icons.how_to_vote, color: Colors.blue),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
