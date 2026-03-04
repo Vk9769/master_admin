@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'add_admin_page.dart';
-import 'edit_agent_page.dart';
-import 'agent_profile_page.dart';
+import 'edit_district_admin_page.dart';
+import 'district_admin_profile_page.dart';
 
 class ViewAdminPage extends StatefulWidget {
   const ViewAdminPage({Key? key}) : super(key: key);
@@ -50,6 +50,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     _loadAdminData();
     _loadElections();
   }
+
   String? _selectedState;
   String? _selectedDistrict;
 
@@ -467,7 +468,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditAgentPage(agentId: admin['id'].toString()),
+            EditDistrictAdminPage(districtAdminId: admin['id'].toString()),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return SlideTransition(
             position: animation.drive(
@@ -489,7 +490,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            AgentProfilePage(agentId: admin['id']),
+            DistrictAdminProfilePage(districtAdminId: admin['id']),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,

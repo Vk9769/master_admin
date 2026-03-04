@@ -10,16 +10,16 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 
-class EditSuperAdminPage extends StatefulWidget {
-  final String superAdminId;
+class EditDistrictAdminPage extends StatefulWidget {
+  final String districtAdminId;
 
-  const EditSuperAdminPage({super.key, required this.superAdminId});
+  const EditDistrictAdminPage({super.key, required this.districtAdminId});
 
   @override
-  State<EditSuperAdminPage> createState() => _EditSuperAdminPageState();
+  State<EditDistrictAdminPage> createState() => _EditDistrictAdminPageState();
 }
 
-class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
+class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
   final _formKey = GlobalKey<FormState>();
 
   List<Map<String, dynamic>> _elections = [];
@@ -62,7 +62,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
   void initState() {
     super.initState();
     _fetchElections();
-    _loadSuperAdminDetails();
+    _loadDistrictAdminDetails();
   }
 
   Future<void> _fetchElections() async {
@@ -116,14 +116,14 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
     }
   }
 
-  Future<void> _loadSuperAdminDetails() async {
+  Future<void> _loadDistrictAdminDetails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString("token");
       if (token == null) return;
 
       final response = await http.get(
-        Uri.parse("$baseUrl/super-admin/${widget.superAdminId}"),
+        Uri.parse("$baseUrl/admin/${widget.districtAdminId}"),
         headers: {"Authorization": "Bearer $token"},
       );
 
@@ -360,7 +360,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
   }
 
   Future<void> _submit() async {
-    print("🟢 SUPER ADMIN SUBMIT CLICKED");
+    print("🟢 DISTRICT ADMIN SUBMIT CLICKED");
 
     if (_selectedElectionId == null) {
       ScaffoldMessenger.of(
@@ -393,7 +393,9 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
       // ✅ CORRECT ENDPOINT
       final request = http.MultipartRequest(
         'PUT',
-        Uri.parse('$baseUrl/super-admin/update-full/${widget.superAdminId}'),
+        Uri.parse(
+          '$baseUrl/district-admin/update-full/${widget.districtAdminId}',
+        ),
       );
 
       request.headers['Authorization'] = 'Bearer $token';
@@ -429,7 +431,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
             http.MultipartFile.fromBytes(
               'profilePhoto',
               _webImageBytes!,
-              filename: 'super_admin.jpg',
+              filename: 'district_admin.jpg',
               contentType: MediaType('image', 'jpeg'),
             ),
           );
@@ -443,7 +445,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
         }
       }
 
-      print("🟢 CALLING SUPER ADMIN API");
+      print("🟢 CALLING DISTRICT ADMIN API");
 
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
@@ -453,7 +455,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Super Admin Created Successfully')),
+          const SnackBar(content: Text('District Admin Updated Successfully')),
         );
         _resetForm();
       } else {
@@ -483,7 +485,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: const Text('Edit Super Admin'),
+        title: const Text('Edit District Admin'),
         backgroundColor: primary,
         centerTitle: true,
       ),
@@ -972,7 +974,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
                           const SizedBox(height: 6),
 
                           const Text(
-                            'Please select role and exact election and state to assign this super admin carefully',
+                            'Please select role and exact election and state to assign this district admin carefully',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.black54,
@@ -989,7 +991,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
                               color: Colors.blue,
                             ),
                             title: const Text("Role"),
-                            subtitle: const Text("Super Admin"),
+                            subtitle: const Text("District Admin"),
                           ),
 
                           const SizedBox(height: 16),
@@ -1098,7 +1100,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
                                   label: Text(
                                     _loading
                                         ? 'Updating...'
-                                        : 'Update Super Admin',
+                                        : 'Update District Admin',
                                   ),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: primary,
