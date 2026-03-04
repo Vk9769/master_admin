@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'admin_dashboard.dart';
@@ -27,26 +26,41 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
 
     try {
-      final response = await http.post(
-        Uri.parse(
-          "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/auth/login",
-        ),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "identifier": _emailController.text.trim(),
-          "password": _passwordController.text.trim(),
-          "app": "MASTER_ADMIN", // 🔑 IMPORTANT
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse(
+              "http://voting-alb-1933918113.eu-north-1.elb.amazonaws.com/auth/login",
+            ),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "identifier": _emailController.text.trim(),
+              "password": _passwordController.text.trim(),
+              "app": "MASTER_ADMIN",
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic> data = {};
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        data = {};
+      }
 
       if (response.statusCode != 200) {
-        Fluttertoast.showToast(
-          msg: data["message"] ?? "Login failed",
-          backgroundColor: Colors.red,
-          textColor: Colors.white,
+        String message = data["message"] ?? "Login failed";
+
+        if (message.toLowerCase().contains("invalid")) {
+          message = "Invalid email or password";
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red.shade700,
+          ),
         );
+
         setState(() => _loading = false);
         return;
       }
@@ -72,12 +86,13 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       // optional
-      await prefs.setString("user_role", data["user"]["role"]);
+      await prefs.setString("user_role", user?["role"]?.toString() ?? "");
 
-      Fluttertoast.showToast(
-        msg: "Welcome Master Admin!",
-        backgroundColor: Colors.green,
-        textColor: Colors.white,
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Welcome Master Admin!"),
+          backgroundColor: Colors.green,
+        ),
       );
 
       if (!mounted) return;
@@ -87,13 +102,29 @@ class _LoginPageState extends State<LoginPage> {
         MaterialPageRoute(builder: (_) => const AdminDashboard()),
       );
     } catch (e) {
-      Fluttertoast.showToast(
-        msg: "Server not reachable",
-        backgroundColor: Colors.red,
-      );
-    }
+      String message = "Something went wrong";
 
+      if (e.toString().contains("SocketException")) {
+        message = "No Internet Connection";
+      } else if (e.toString().contains("TimeoutException")) {
+        message = "Server timeout. Try again.";
+      } else {
+        message = "Server not reachable";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      );
+      ;
+    }
     setState(() => _loading = false);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -209,9 +240,13 @@ class _LoginPageState extends State<LoginPage> {
                               alignment: Alignment.centerRight,
                               child: TextButton(
                                 onPressed: () {
-                                  Fluttertoast.showToast(
-                                    msg: "Password recovery coming soon",
-                                    backgroundColor: Colors.blueGrey,
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Password recovery coming soon",
+                                      ),
+                                      backgroundColor: Colors.blueGrey,
+                                    ),
                                   );
                                 },
                                 child: const Text("Forgot Password?"),
