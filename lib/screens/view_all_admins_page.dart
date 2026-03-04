@@ -50,23 +50,70 @@ class _ViewAdminPageState extends State<ViewAdminPage>
     _loadAdminData();
     _loadElections();
   }
-
   String? _selectedState;
   String? _selectedDistrict;
 
-  List<String> _states = ["Maharashtra", "Gujarat", "Karnataka"];
-
-  Map<String, List<String>> _districts = {
-    "Maharashtra": ["Mumbai", "Pune", "Nashik"],
-    "Gujarat": ["Ahmedabad", "Surat"],
-    "Karnataka": ["Bangalore", "Mysore"],
-  };
+  List<String> _states = [];
+  List<String> _districts = [];
 
   @override
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchStatesByElection(int electionId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl/api/common/election-states?election_id=$electionId",
+        ),
+        headers: {"Authorization": "Bearer $token"},
+      );
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          _states = List<String>.from(data);
+          _selectedState = null;
+          _districts = [];
+          _selectedDistrict = null;
+        });
+      }
+    } catch (e) {
+      debugPrint("State fetch error: $e");
+    }
+  }
+
+  Future<void> _fetchDistrictsByState(int electionId, String state) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl/api/common/election-districts?election_id=$electionId&state=$state",
+        ),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          _districts = List<String>.from(data);
+          _selectedDistrict = null;
+        });
+      }
+    } catch (e) {
+      debugPrint("District fetch error: $e");
+    }
   }
 
   Future<void> _loadAdminData() async {
@@ -155,7 +202,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
 
       final response = await http.get(
         Uri.parse(
-          "$baseUrl/admin/counts/$_selectedElectionId?state=$_selectedState&district=$_selectedDistrict",
+          "$baseUrl/admin/counts?election_id=$_selectedElectionId&state=$_selectedState&district=$_selectedDistrict",
         ),
         headers: {"Authorization": "Bearer $token"},
       );
@@ -166,10 +213,10 @@ class _ViewAdminPageState extends State<ViewAdminPage>
         if (!mounted) return;
 
         setState(() {
-          _totalCount = data['total'] ?? 0;
-          _approvedCount = data['approved'] ?? 0;
-          _pendingCount = data['pending'] ?? 0;
-          _rejectedCount = data['rejected'] ?? 0;
+          _totalCount = int.parse(data['total'].toString());
+          _approvedCount = int.parse(data['approved'].toString());
+          _pendingCount = int.parse(data['pending'].toString());
+          _rejectedCount = int.parse(data['rejected'].toString());
         });
       }
     } catch (e) {
@@ -514,10 +561,6 @@ class _ViewAdminPageState extends State<ViewAdminPage>
               style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 4),
-            Text(
-              'Booth: ${admin['booth_name'] ?? 'N/A'}',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-            ),
           ],
         ),
         onTap: () => _viewAdminDetails(admin),
@@ -640,8 +683,15 @@ class _ViewAdminPageState extends State<ViewAdminPage>
               onChanged: (value) {
                 setState(() {
                   _selectedElectionId = value;
-                  _selectedState = null; // reset state
+                  _selectedState = null;
+                  _selectedDistrict = null;
+                  _states = [];
+                  _districts = [];
                 });
+
+                if (value != null) {
+                  _fetchStatesByElection(value);
+                }
               },
               decoration: InputDecoration(
                 labelText: "Select Election",
@@ -670,8 +720,13 @@ class _ViewAdminPageState extends State<ViewAdminPage>
                 onChanged: (value) {
                   setState(() {
                     _selectedState = value;
-                    _selectedDistrict = null; // reset district
+                    _selectedDistrict = null;
+                    _districts = [];
                   });
+
+                  if (value != null && _selectedElectionId != null) {
+                    _fetchDistrictsByState(_selectedElectionId!, value);
+                  }
                 },
                 decoration: InputDecoration(
                   labelText: "Select State",
@@ -691,7 +746,7 @@ class _ViewAdminPageState extends State<ViewAdminPage>
               color: Colors.white,
               child: DropdownButtonFormField<String>(
                 value: _selectedDistrict,
-                items: (_districts[_selectedState] ?? []).map((district) {
+                items: _districts.map((district) {
                   return DropdownMenuItem(
                     value: district,
                     child: Text(district),
