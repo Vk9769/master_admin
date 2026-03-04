@@ -386,7 +386,7 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
       // ✅ CORRECT ENDPOINT
       final request = http.MultipartRequest(
         'PUT',
-        Uri.parse('$baseUrl/super-admin/update/${widget.superAdminId}'),
+          Uri.parse('$baseUrl/super-admin/update-full/${widget.superAdminId}'),
       );
 
       request.headers['Authorization'] = 'Bearer $token';
@@ -815,12 +815,14 @@ class _EditSuperAdminPageState extends State<EditSuperAdminPage> {
                               ),
                             ),
                             validator: (v) {
-                              if (_voterFetched)
-                                return null; // 🔥 THIS IS THE FIX
-                              if (v == null || v.trim().isEmpty)
-                                return 'Password is required';
-                              if (v.trim().length < 6)
+                              if (v == null || v.trim().isEmpty) {
+                                return null; // allow blank on edit
+                              }
+
+                              if (v.trim().length < 6) {
                                 return 'Minimum 6 characters';
+                              }
+
                               return null;
                             },
                           ),
