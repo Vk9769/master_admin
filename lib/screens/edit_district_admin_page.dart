@@ -58,6 +58,10 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
 
   String? _selectedState;
 
+  List<String> _districts = [];
+  String? _selectedDistrict;
+
+
   @override
   void initState() {
     super.initState();
@@ -116,6 +120,36 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
     }
   }
 
+  Future<void> _fetchDistricts(String electionId, String state) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString("token");
+      if (token == null) return;
+
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl/api/common/election-districts?election_id=$electionId&state=$state",
+        ),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        setState(() {
+          _districts = List<String>.from(data);
+          if (!_districts.contains(_selectedDistrict)) {
+            _selectedDistrict = null;
+          }
+        });
+      } else {
+        debugPrint("District API error: ${response.body}");
+      }
+    } catch (e) {
+      debugPrint("District fetch error: $e");
+    }
+  }
+
   Future<void> _loadDistrictAdminDetails() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -145,11 +179,16 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
           _selectedGender = normalizeGender(data['gender']);
           _selectedElectionId = data['election_id']?.toString();
           _selectedState = data['state'];
+          _selectedDistrict = data['district'];
           _existingProfilePhotoUrl = data['profile_photo'];
         });
 
         if (_selectedElectionId != null) {
           await _fetchStatesByElection(_selectedElectionId!);
+
+          if (_selectedState != null) {
+            await _fetchDistricts(_selectedElectionId!, _selectedState!);
+          }
         }
       }
     } catch (e) {
@@ -370,9 +409,16 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
     }
 
     if (_selectedState == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select state')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select state')),
+      );
+      return;
+    }
+
+    if (_selectedDistrict == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select district')),
+      );
       return;
     }
 
@@ -394,7 +440,7 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
       final request = http.MultipartRequest(
         'PUT',
         Uri.parse(
-          '$baseUrl/district-admin/update-full/${widget.districtAdminId}',
+          '$baseUrl/admin/update-full/${widget.districtAdminId}',
         ),
       );
 
@@ -421,6 +467,7 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
       // ✅ IMPORTANT
       request.fields['electionId'] = _selectedElectionId!;
       request.fields['state'] = _selectedState!;
+      request.fields['district'] = _selectedDistrict!;
 
       // =========================
       // PROFILE PHOTO
@@ -1011,13 +1058,41 @@ class _EditDistrictAdminPageState extends State<EditDistrictAdminPage> {
                             onChanged: (v) {
                               setState(() {
                                 _selectedState = v;
+                                _selectedDistrict = null;
+                                _districts = [];
                               });
+
+                              if (v != null && _selectedElectionId != null) {
+                                _fetchDistricts(_selectedElectionId!, v);
+                              }
                             },
                             decoration: const InputDecoration(
                               labelText: "Select State",
                               border: OutlineInputBorder(),
                             ),
                             validator: (v) => v == null ? 'Select state' : null,
+                          ),
+                          const SizedBox(height: 16),
+
+                          DropdownButtonFormField<String>(
+                            key: ValueKey(safeKeyFromList(_districts, 'district')),
+                            value: safeDropdownValue(_districts, _selectedDistrict),
+                            items: _districts
+                                .map((d) => DropdownMenuItem(
+                              value: d,
+                              child: Text(d),
+                            ))
+                                .toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                _selectedDistrict = v;
+                              });
+                            },
+                            decoration: const InputDecoration(
+                              labelText: "Select District",
+                              border: OutlineInputBorder(),
+                            ),
+                            validator: (v) => v == null ? 'Select district' : null,
                           ),
                         ],
                       ),

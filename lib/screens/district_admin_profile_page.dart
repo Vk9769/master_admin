@@ -212,6 +212,13 @@ class _DistrictAdminProfilePageState extends State<DistrictAdminProfilePage> {
                     themeColor,
                   ),
 
+                  _buildInfoCard(
+                    Icons.location_city,
+                    "District",
+                    districtAdmin!['district'],
+                    themeColor,
+                  ),
+
                   const SizedBox(height: 20),
 
                   Center(
